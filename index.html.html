@@ -1,0 +1,2914 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>未来教室 · 3D 搭建平台</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --page-bg: #FADADD;
+      --macaron-pink: #F8A8C2;
+      --macaron-blue: #A8D8F8;
+      --macaron-yellow: #FFF498;
+      --text-warm: #5D4037;
+      --login-dark-bg: #1A1A2E;
+      --login-glow-mid: #2B2B4A;
+    }
+    html, body {
+      width: 100%; height: 100%; overflow: hidden;
+      font-family: "Hiragino Sans GB", "Microsoft YaHei", "PingFang SC", "Comic Sans MS", sans-serif;
+      background-color: var(--page-bg);
+      color: var(--text-warm);
+    }
+
+    /* ================= 登录页还原为你贴的版本风格 ================= */
+    #page-login {
+      position: fixed; inset: 0; z-index: 5000;
+      display: flex; align-items: center; justify-content: center;
+      background: radial-gradient(circle at center, var(--login-glow-mid) 0%, var(--login-dark-bg) 100%);
+      transition: opacity 0.6s ease-out; opacity: 0;
+      animation: loginFadeIn 1s ease-out forwards;
+      overflow: hidden;
+    }
+    #loginFlowerCanvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+    @keyframes loginFadeIn { to { opacity: 1; } }
+    #page-login.is-hidden { display: none !important; }
+
+    .login-card {
+      position: relative; z-index: 10; width: min(90vw, 420px); padding: 40px;
+      background: rgba(255, 255, 255, 0.95); border-radius: 30px; border: 6px solid var(--macaron-pink);
+      box-shadow: 0 15px 40px rgba(0, 0, 0, 0.4); backdrop-filter: blur(10px); text-align: center;
+      overflow: visible;
+    }
+    .login-title {
+      font-size: 28px; color: #E91E63; margin-bottom: 30px;
+      text-shadow: 2px 2px 0 rgba(0,0,0,0.05);
+      animation: dropDown 0.8s cubic-bezier(0.68, -0.55, 0.27, 1.55) forwards;
+      opacity: 0;
+    }
+    @keyframes dropDown { from{ transform: translateY(-50px); opacity: 0;} to{ transform: translateY(0); opacity: 1;} }
+
+    .login-input {
+      width: 100%; padding: 16px; font-size: 16px; border-radius: 20px; border: 3px solid #eee;
+      background: #fafafa; color: var(--text-warm); outline: none; text-align: center; margin-bottom: 15px;
+      transition: all 0.3s; font-weight: bold;
+    }
+    .login-input:focus { transform: scale(1.02); border-color: var(--macaron-blue); background: #fff; }
+    .login-input.error { border-color: #FF5252; animation: shake 0.4s; }
+    @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} }
+
+    .error-tip { color: #FF5252; font-size: 14px; font-weight: bold; opacity: 0; transition: 0.3s; height: 20px; }
+    .btn-login-go {
+      width: 100%; padding: 16px; font-size: 20px; font-weight: bold; color: var(--text-warm);
+      background: #FDE047; border: 3px solid #FBC02D; border-radius: 25px; cursor: pointer;
+      box-shadow: 0 6px 0 #FBC02D; transition: all 0.2s; margin-top: 10px;
+    }
+    .btn-login-go:active { transform: translateY(6px); box-shadow: 0 0 0 #FBC02D; }
+    .star-particle {
+      position: absolute; left: 50%; top: 78%; font-size: 22px; pointer-events: none; z-index: 30;
+      animation: starFlyRef 1.05s ease-out forwards;
+    }
+    @keyframes starFlyRef {
+      0% { transform: translate(-50%, -50%) scale(0.45); opacity: 1; }
+      100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1.45) rotate(200deg); opacity: 0; }
+    }
+
+    #page-app { display: none; width: 100%; height: 100%; flex-direction: column; opacity: 0; }
+    #page-app.app-visible { display: flex; animation: appFadeIn 0.5s ease forwards; }
+    @keyframes appFadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .welcome-banner {
+      position: fixed; left: 50%; top: 62px; transform: translateX(-50%); z-index: 4500;
+      padding: 12px 24px; font-size: 1rem; font-weight: bold; color: #fff; background: var(--macaron-blue);
+      border-radius: 22px; border: 3px solid #fff; pointer-events: none;
+      max-width: min(92vw, 520px); box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+      transition: opacity 0.4s;
+    }
+    .welcome-banner.show-welcome { opacity: 1; }
+    .welcome-banner:not(.show-welcome) { opacity: 0; top: 62px; }
+
+    /* ========== 左上角关卡下拉（z-index 9999） ========== */
+    .level-dropdown-wrap {
+      position: fixed; top: 10px; left: 10px; z-index: 9999;
+      font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+    }
+    .level-dd-trigger {
+      display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 14px;
+      background: rgba(30, 58, 138, 0.8); color: #fff; border: none; border-radius: 8px;
+      font-size: 15px; font-weight: bold; cursor: pointer; white-space: nowrap;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    }
+    .level-dd-trigger .arrow { font-size: 12px; opacity: 0.9; transition: transform 0.25s; }
+    .level-dropdown-wrap.open .level-dd-trigger .arrow { transform: rotate(180deg); }
+    .level-dd-panel {
+      margin-top: 6px; background: rgba(30, 58, 138, 0.8); border-radius: 8px; overflow: hidden;
+      box-shadow: 0 0 14px rgba(255,255,255,0.25), 0 8px 24px rgba(0,0,0,0.3);
+      max-height: 0; transition: max-height 0.3s ease;
+    }
+    .level-dropdown-wrap.open .level-dd-panel { max-height: 220px; }
+    .level-dd-item {
+      padding: 10px 16px; color: #fff; font-size: 16px; line-height: 2.5; cursor: pointer;
+      font-weight: bold; border-bottom: 1px solid rgba(255,255,255,0.12);
+    }
+    .level-dd-item:last-child { border-bottom: none; }
+    .level-dd-item:hover { background: #3B5BDB; }
+    .level-dd-item .check { float: right; opacity: 0.95; }
+    .level-dd-item[data-level="1"] .check { visibility: visible; }
+    .level-dd-item[data-level="2"] .check { visibility: hidden; }
+
+    /* 模式提示条 */
+    #modeBanner {
+      position: fixed; top: 56px; left: 50%; transform: translateX(-50%); z-index: 8000;
+      padding: 10px 22px; border-radius: 12px; font-size: 16px; font-weight: bold; color: #fff;
+      background: rgba(0,0,0,0.72); pointer-events: none; opacity: 0; transition: opacity 0.25s;
+      max-width: 90vw; text-align: center;
+    }
+    #modeBanner.show { opacity: 1; }
+
+    .layout { display: flex; flex: 1; width: 100%; min-height: 0; }
+    .sidebar {
+      width: 22%; min-width: 240px; max-width: 340px; height: 100%;
+      display: flex; flex-direction: column;
+      background: linear-gradient(165deg, #fce4ec 0%, #e3f2fd 50%, #fff9c4 100%);
+      border-right: 4px solid var(--macaron-pink); overflow: hidden;
+    }
+    /* 任务清单：下移避免与左上角关卡下拉重叠 */
+    .task-panel {
+      flex-shrink: 0; margin: 10px 10px 8px; margin-top: 72px;
+      padding: 12px 10px 14px; border-radius: 14px; background: transparent;
+    }
+    .task-panel h3 { text-align: center; margin-bottom: 14px; font-size: 1.15rem; font-weight: 900; color: #ad1457; }
+    .task-card {
+      display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px; padding: 12px 12px 12px 10px;
+      background: #fff; border-radius: 14px; border: 2px solid #e0e0e0;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04); transition: transform 0.35s ease, border-color 0.25s;
+    }
+    .task-card .task-icon { font-size: 22px; line-height: 1.2; flex-shrink: 0; }
+    .task-card .task-body { flex: 1; min-width: 0; display: flex; gap: 8px; align-items: flex-start; font-size: 13px; font-weight: 700; color: #424242; line-height: 1.5; }
+    .task-card .mark { flex-shrink: 0; width: 26px; text-align: center; color: #9e9e9e; font-size: 17px; line-height: 1.4; }
+    .task-card.done { border-color: #a5d6a7; background: #f9fff9; }
+    .task-card.done .mark { color: #2e7d32; font-weight: 900; font-size: 18px; }
+    .task-card.pop { animation: taskPop 0.5s ease; }
+    @keyframes taskPop { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.04); } }
+
+    .sidebar-scroll { flex: 1; overflow-y: auto; padding: 8px 10px; }
+    .lib-section-title { font-size: 12px; font-weight: 800; color: #c2185b; margin: 8px 4px 6px; }
+    .lib-card {
+      display: flex; align-items: center; gap: 10px; padding: 10px; margin-bottom: 8px;
+      background: rgba(255,255,255,0.92); border-radius: 14px; border: 2px solid var(--macaron-blue);
+      cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .lib-card:hover { transform: translateX(3px); box-shadow: 0 4px 16px rgba(168,216,248,0.45); }
+    .lib-card .thumb-img { width: 56px; height: 56px; border-radius: 10px; object-fit: cover; flex-shrink: 0; box-shadow: 2px 3px 8px rgba(0,0,0,0.15); }
+    .lib-card .info .name { font-size: 14px; font-weight: 800; color: #1565c0; }
+    .lib-card .info .desc { font-size: 11px; color: #666; margin-top: 2px; }
+
+    .floor-tex-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+    .floor-swatch {
+      width: 52px; height: 52px; border-radius: 10px; border: 3px solid #fff; cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15); background-size: cover; background-position: center;
+    }
+    .floor-swatch:hover, .floor-swatch.active { outline: 3px solid #3B5BDB; }
+
+    .viewport-wrap { flex: 1; min-width: 0; position: relative; background: #0a0a12; }
+    #canvas-container { width: 100%; height: 100%; }
+
+    .hint-panel {
+      position: absolute; top: 12px; right: 130px; z-index: 100;
+      background: rgba(0,0,0,0.7); color: #fff; padding: 12px 16px; border-radius: 12px;
+      font-size: 14px; font-weight: bold; line-height: 1.65; max-width: 280px; pointer-events: none;
+    }
+
+    .btn-delete-mode {
+      position: absolute; top: 12px; right: 12px; z-index: 101;
+      min-width: 108px; height: 48px; padding: 0 14px; border-radius: 24px; border: 3px solid #bdbdbd;
+      background: #e0e0e0; color: #c62828; font-size: 16px; font-weight: 900; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2); transition: background 0.2s, border-color 0.2s, color 0.2s;
+      font-family: inherit;
+    }
+    .btn-delete-mode .del-ico { font-size: 20px; filter: grayscale(0.2); }
+    .btn-delete-mode.on {
+      background: #c8e6c9; border-color: #43a047; color: #1b5e20;
+      animation: breatheDel 1.2s ease-in-out infinite;
+    }
+    .btn-delete-mode.on .del-ico { filter: none; }
+    @keyframes breatheDel { 0%, 100% { box-shadow: 0 0 0 0 rgba(67,160,71,0.45); } 50% { box-shadow: 0 0 0 8px rgba(67,160,71,0); } }
+
+    #victoryOverlay {
+      position: fixed; inset: 0; z-index: 12000; background: rgba(0,0,0,0.55);
+      display: none; align-items: center; justify-content: center; flex-direction: column;
+      pointer-events: none;
+    }
+    #victoryOverlay.show { display: flex; animation: vicFade 0.3s ease; }
+    @keyframes vicFade { from { opacity: 0; } to { opacity: 1; } }
+    .victory-box {
+      background: linear-gradient(135deg, #fff59d, #f8bbd9, #b3e5fc); padding: 36px 48px; border-radius: 24px;
+      font-size: 28px; font-weight: 900; color: #4a148c; border: 5px solid #fff; text-align: center;
+      box-shadow: 0 16px 48px rgba(0,0,0,0.3);
+    }
+    .rainbow-particle {
+      position: fixed; font-size: 20px; pointer-events: none; z-index: 12001;
+      animation: rbFall 2s ease-out forwards;
+    }
+    @keyframes rbFall {
+      0% { transform: translate(0,0) rotate(0deg); opacity: 1; }
+      100% { transform: translate(var(--rdx), var(--rdy)) rotate(360deg); opacity: 0; }
+    }
+
+    .task-star-fx { position: fixed; font-size: 18px; pointer-events: none; z-index: 11000; animation: tsStar 0.6s ease-out forwards; }
+    @keyframes tsStar { 0% { transform: translate(-50%,-50%) scale(0.3); opacity: 1; } 100% { transform: translate(-50%,-80px) scale(1.2); opacity: 0; } }
+
+    .shatter-fx { position: fixed; width: 6px; height: 6px; border-radius: 2px; pointer-events: none; z-index: 9000; animation: shat 0.35s ease-out forwards; }
+    @keyframes shat { to { transform: translate(var(--sx),var(--sy)) scale(0); opacity: 0; } }
+
+    .loading-toast { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); padding: 8px 14px; background: rgba(0,0,0,0.75); color: #fff; border-radius: 8px; font-size: 13px; display: none; z-index: 50; }
+
+    /* 左下角植物生长动画已移除（保持界面干净） */
+
+    /* ================= 第二关 UI：分区标签 + 解锁弹窗 ================= */
+    .only-lv2 { display: none; }
+    body[data-level="2"] .only-lv2 { display: block; }
+    body[data-level="2"] .only-lv1 { display: none; }
+
+    .zone-tabs {
+      display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;
+      margin: 8px 0 10px;
+    }
+    .zone-tab {
+      border: 3px solid transparent; border-radius: 999px;
+      padding: 8px 10px; cursor: pointer;
+      font-weight: 900; font-size: 14px;
+      background: #fff; color: #37474f;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+      display: inline-flex; align-items: center; gap: 6px;
+      user-select: none;
+    }
+    .zone-tab[data-zone="study"] { background: #E3F2FD; }
+    .zone-tab[data-zone="rest"] { background: #FCE4EC; }
+    .zone-tab[data-zone="fun"] { background: #FFF9C4; }
+    .zone-tab.active { border-color: #43a047; }
+    .zone-tab .zmark { font-weight: 1000; color: #2e7d32; display: none; }
+    .zone-tab.done .zmark { display: inline-block; }
+
+    .unlock-mask {
+      position: fixed; inset: 0; z-index: 14000;
+      background: rgba(0,0,0,0.45);
+      display: none; align-items: center; justify-content: center;
+      backdrop-filter: blur(4px);
+    }
+    .unlock-mask.show { display: flex; }
+    .unlock-card {
+      width: min(92vw, 420px);
+      background: rgba(255,255,255,0.96);
+      border-radius: 22px;
+      border: 6px solid var(--macaron-pink);
+      box-shadow: 0 18px 48px rgba(0,0,0,0.25);
+      padding: 18px 18px 16px;
+      text-align: center;
+    }
+    .unlock-title { font-size: 1.2rem; font-weight: 1000; color: #E91E63; margin: 4px 0 10px; }
+    .unlock-desc { font-size: 14px; font-weight: 900; color: #5d4037; margin-bottom: 10px; }
+    .unlock-row { display: flex; gap: 10px; align-items: center; justify-content: center; margin: 10px 0 12px; }
+    .unlock-input {
+      width: 140px; text-align: center;
+      font-size: 22px; font-weight: 1000;
+      border-radius: 14px; border: 3px solid #eee; padding: 10px 12px;
+      outline: none;
+    }
+    .unlock-btn {
+      border: 0; border-radius: 14px;
+      padding: 12px 14px;
+      background: #FDE047; border: 3px solid #FBC02D;
+      font-weight: 1000; color: #5d4037; cursor: pointer;
+      box-shadow: 0 6px 0 #FBC02D;
+    }
+    .unlock-btn:active { transform: translateY(6px); box-shadow: 0 0 0 #FBC02D; }
+    .unlock-tip { height: 22px; font-size: 14px; font-weight: 1000; color: #e53935; opacity: 0; transition: opacity 0.2s; }
+    .unlock-tip.show { opacity: 1; }
+
+    /* ========== 左侧素材库：手风琴（马卡龙配色 + 圆角 + 折叠动画）========== */
+    .macaron-acc { display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px; }
+    .acc-item {
+      border-radius: 18px; overflow: hidden;
+      border: 3px solid rgba(255, 183, 213, 0.55);
+      box-shadow: 0 4px 14px rgba(179, 229, 252, 0.35);
+      background: rgba(255, 255, 255, 0.65);
+    }
+    .acc-header {
+      width: 100%; display: flex; align-items: center; justify-content: space-between;
+      gap: 8px; padding: 13px 14px; border: 0; cursor: pointer; font-family: inherit;
+      font-size: 15px; font-weight: 900; letter-spacing: 0.02em; text-align: left;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .acc-header:active { transform: scale(0.98); }
+    .acc-header.acc-pink { background: linear-gradient(120deg, #fce4ec 0%, #fff0f5 100%); color: #c2185b; }
+    .acc-header.acc-blue { background: linear-gradient(120deg, #e3f2fd 0%, #f5fbff 100%); color: #1565c0; }
+    .acc-header.acc-yellow { background: linear-gradient(120deg, #fff9c4 0%, #fffef5 100%); color: #f57c00; }
+    .acc-header.acc-mint { background: linear-gradient(120deg, #e8f5e9 0%, #f5fff8 100%); color: #2e7d32; }
+    .acc-chev {
+      flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%;
+      background: rgba(255, 255, 255, 0.85); display: flex; align-items: center; justify-content: center;
+      font-size: 10px; transition: transform 0.38s cubic-bezier(0.34, 1.2, 0.64, 1); color: #888;
+    }
+    .acc-item.open .acc-chev { transform: rotate(180deg); }
+    /* max-height 过渡实现折叠动画（内容增高时可调大数值） */
+    .acc-panel {
+      max-height: 0; overflow: hidden;
+      transition: max-height 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+      border-top: 2px dashed rgba(255, 183, 213, 0.35);
+    }
+    .acc-item.open .acc-panel { max-height: 920px; }
+    .acc-panel-inner { padding: 8px 8px 12px; }
+    .acc-lv1-tip {
+      margin: 8px; padding: 14px 12px; border-radius: 14px; text-align: center; line-height: 1.55;
+      font-size: 12px; font-weight: 800; color: #6d4c41;
+      background: linear-gradient(135deg, #fff9c4 0%, #e1f5fe 50%, #fce4ec 100%);
+      border: 2px solid rgba(255, 255, 255, 0.9);
+    }
+  </style>
+</head>
+<body>
+  <div id="page-login" aria-label="登录">
+    <canvas id="loginFlowerCanvas" aria-hidden="true"></canvas>
+    <div class="login-card" id="loginCard">
+      <h1 class="login-title">✨ 未来教室工坊 ✨</h1>
+      <input type="text" id="inputGroup" class="login-input" placeholder="请输入小组编号（如01）" maxlength="20" autocomplete="off" />
+      <input type="text" id="inputName" class="login-input" placeholder="输入你的昵称吧～" maxlength="16" autocomplete="off" />
+      <div class="error-tip" id="errorTip">😜 别忘了填写哦！</div>
+      <!-- 去掉小火箭：按钮文本保持纯文字 -->
+      <button type="button" class="btn-login-go" id="btnLoginGo">进入搭建乐园</button>
+    </div>
+  </div>
+
+  <div id="page-app" class="app-stage">
+    <div class="welcome-banner" id="welcomeBanner"></div>
+
+    <!-- 关卡下拉：登录后显示，最高层级 -->
+    <div class="level-dropdown-wrap" id="levelDropdownWrap" style="display:none">
+      <button type="button" class="level-dd-trigger" id="levelDdTrigger" aria-expanded="false">
+        <span id="levelDdLabel">第一关：智筑启航</span><span class="arrow">▼</span>
+      </button>
+      <div class="level-dd-panel" id="levelDdPanel">
+        <div class="level-dd-item" data-level="1">第一关：智筑启航 <span class="check">✓</span></div>
+        <div class="level-dd-item" data-level="2">第二关：智筑创想 <span class="check">✓</span></div>
+      </div>
+    </div>
+    <div id="modeBanner"></div>
+
+    <div class="layout">
+      <aside class="sidebar" id="sidebar">
+        <!-- 第一关任务面板 -->
+        <div class="task-panel only-lv1" id="taskPanel">
+          <h3>✨ 任务清单</h3>
+          <div class="task-card" data-task="0" id="taskLine0">
+            <span class="mark">□</span><span class="task-icon">🪑</span><span class="task-body">任务 1：安家落户（放置 4 套课桌椅）</span>
+          </div>
+          <div class="task-card" data-task="1" id="taskLine1">
+            <span class="mark">□</span><span class="task-icon">🧹</span><span class="task-body">任务 2：净室清瑕（删除所有饮料瓶）</span>
+          </div>
+          <div class="task-card" data-task="2" id="taskLine2">
+            <span class="mark">□</span><span class="task-icon">🔄</span><span class="task-body">任务 3：摆正方向（选中黑板后按 Z/C 旋转黑板）</span>
+          </div>
+          <div class="task-card" data-task="3" id="taskLine3">
+            <span class="mark">□</span><span class="task-icon">🎨</span><span class="task-body">任务 4：焕彩地面（选择 1 种地板材质）</span>
+          </div>
+        </div>
+
+        <!-- 第二关任务面板（分区标签 + 完成打勾） -->
+        <div class="task-panel only-lv2" id="taskPanelLv2">
+          <h3>✨ 第二关：智筑创想</h3>
+          <div class="zone-tabs" id="zoneTabs">
+            <button class="zone-tab" data-zone="study" type="button"><span>📚学习区</span><span class="zmark">✓</span></button>
+            <button class="zone-tab" data-zone="rest" type="button"><span>☕休息区</span><span class="zmark">✓</span></button>
+            <button class="zone-tab" data-zone="fun" type="button"><span>🎮娱乐区</span><span class="zmark">✓</span></button>
+          </div>
+          <div class="task-card" id="lv2LineStudy">
+            <span class="mark">□</span><span class="task-icon">📚</span><span class="task-body">学习区：放置「全息智能课桌 + AI答疑机器人 + 未来电子黑板」</span>
+          </div>
+          <div class="task-card" id="lv2LineRest">
+            <span class="mark">□</span><span class="task-icon">☕</span><span class="task-body">休息区：放置「云朵悬浮沙发 + 温感饮水台」</span>
+          </div>
+          <div class="task-card" id="lv2LineFun">
+            <span class="mark">□</span><span class="task-icon">🎮</span><span class="task-body">娱乐区：放置「彩虹体感垫 + 3D全息涂鸦板」</span>
+          </div>
+          <p style="font-size:11px;color:#666;margin:8px 4px 0;line-height:1.45;">
+            提示：点击上方分区标签→先放置对应“区域标识牌”（悬浮高度 1.2m），再放置该分区模型。
+          </p>
+        </div>
+        <div class="sidebar-scroll">
+          <div class="lib-section-title">素材库 · 分区手风琴（点击标题展开）</div>
+
+          <!-- 四个区域：原生按钮 + CSS max-height 折叠动画；马卡龙圆角配色 -->
+          <div class="macaron-acc" id="modelAccordion" role="navigation" aria-label="分区设备素材">
+
+            <!-- 📚 学习区：第一关基础教具 + 第二关学习区微缩模型 -->
+            <div class="acc-item open" data-zone-acc="study">
+              <button type="button" class="acc-header acc-pink" aria-expanded="true">
+                <span>📚 学习区设备</span><span class="acc-chev" aria-hidden="true">▼</span>
+              </button>
+              <div class="acc-panel" role="region">
+                <div class="acc-panel-inner">
+                  <div class="lib-card" data-place="deskSet" tabindex="0">
+                    <canvas class="thumb-img" id="thumbDesk" width="112" height="112"></canvas>
+                    <div class="info"><div class="name">组合式课桌椅</div><div class="desc">未来圆角 · 浅金属</div></div>
+                  </div>
+                  <div class="lib-card" data-place="holoBoard" tabindex="0">
+                    <canvas class="thumb-img" id="thumbHolo" width="112" height="112"></canvas>
+                    <div class="info"><div class="name">全息黑板</div><div class="desc">发光边框 · 半透明</div></div>
+                  </div>
+                  <div class="lib-card" data-place="whiteBoard" tabindex="0">
+                    <canvas class="thumb-img" id="thumbWhite" width="112" height="112"></canvas>
+                    <div class="info"><div class="name">白板</div><div class="desc">简洁讲台一体</div></div>
+                  </div>
+                  <div class="only-lv2">
+                    <div class="lib-card" data-place="holoDesk" tabindex="0">
+                      <canvas class="thumb-img" id="thumbHoloDesk" width="112" height="112"></canvas>
+                      <div class="info"><div class="name">全息智能课桌</div><div class="desc">玻璃桌面 · 悬浮屏框</div></div>
+                    </div>
+                    <div class="lib-card" data-place="hoverLamp" tabindex="0">
+                      <canvas class="thumb-img" id="thumbHoverLamp" width="112" height="112"></canvas>
+                      <div class="info"><div class="name">悬浮护眼台灯</div><div class="desc">扁圆灯头 · 上下浮动</div></div>
+                    </div>
+                    <div class="lib-card" data-place="aiRobot" tabindex="0">
+                      <canvas class="thumb-img" id="thumbAiRobot" width="112" height="112"></canvas>
+                      <div class="info"><div class="name">AI答疑机器人</div><div class="desc">胶囊身体 · 发光脸屏</div></div>
+                    </div>
+                    <div class="lib-card" data-place="futureBoard" tabindex="0">
+                      <canvas class="thumb-img" id="thumbFutureBoard" width="112" height="112"></canvas>
+                      <div class="info"><div class="name">未来电子黑板</div><div class="desc">马卡龙发光边框</div></div>
+                    </div>
+                    <div class="lib-card" data-place="voiceMachine" tabindex="0">
+                      <canvas class="thumb-img" id="thumbVoiceMachine" width="112" height="112"></canvas>
+                      <div class="info"><div class="name">语音答题机</div><div class="desc">胖乎乎麦克风</div></div>
+                    </div>
+                    <div class="lib-card" data-place="autoShelf" tabindex="0">
+                      <canvas class="thumb-img" id="thumbAutoShelf" width="112" height="112"></canvas>
+                      <div class="info"><div class="name">自动整理书架</div><div class="desc">圆角架 · 彩书模块</div></div>
+                    </div>
+                    <div class="lib-card" data-place="smartChair" tabindex="0">
+                      <canvas class="thumb-img" id="thumbSmartChair" width="112" height="112"></canvas>
+                      <div class="info"><div class="name">智能坐姿椅</div><div class="desc">圆润人体工学</div></div>
+                    </div>
+                    <div class="lib-card" data-place="projector3D" tabindex="0">
+                      <canvas class="thumb-img" id="thumbProjector3D" width="112" height="112"></canvas>
+                      <div class="info"><div class="name">3D课本展示台</div><div class="desc">发光十二面体</div></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ☁️ 休息区 -->
+            <div class="acc-item" data-zone-acc="rest">
+              <button type="button" class="acc-header acc-blue" aria-expanded="false">
+                <span>☁️ 休息区设备</span><span class="acc-chev" aria-hidden="true">▼</span>
+              </button>
+              <div class="acc-panel" role="region">
+                <div class="acc-panel-inner">
+                  <p class="acc-lv1-tip only-lv1">🔒 进入第二关后，可在此布置休息区微缩模型～</p>
+                  <div class="only-lv2">
+                    <div class="lib-card" data-place="cloudSofa" tabindex="0">
+                      <canvas class="thumb-img" id="thumbCloudSofa" width="112" height="112"></canvas>
+                      <div class="info"><div class="name">云朵悬浮沙发</div><div class="desc">白云交叠 · 治愈悬浮</div></div>
+                    </div>
+                    <div class="lib-card" data-place="pillowSeat" tabindex="0">
+                      <canvas class="thumb-img" id="thumbPillowSeat" width="112" height="112"></canvas>
+                      <div class="info"><div class="name">抱枕座椅</div><div class="desc">软绵绵 · 胶囊压扁</div></div>
+                    </div>
+                    <div class="lib-card" data-place="smartWater" tabindex="0">
+                      <canvas class="thumb-img" id="thumbSmartWater" width="112" height="112"></canvas>
+                      <div class="info"><div class="name">温感饮水台</div><div class="desc">胖企鹅 · 水滴指示灯</div></div>
+                    </div>
+                    <div class="lib-card" data-place="aromaPurifier" tabindex="0">
+                      <canvas class="thumb-img" id="thumbAromaPurifier" width="112" height="112"></canvas>
+                      <div class="info"><div class="name">香薰净化器</div><div class="desc">气流圆环 · 缓慢旋转</div></div>
+                    </div>
+                    <div class="lib-card" data-place="miniWindow" tabindex="0">
+                      <canvas class="thumb-img" id="thumbMiniWindow" width="112" height="112"></canvas>
+                      <div class="info"><div class="name">阳光观景窗</div><div class="desc">发光小太阳</div></div>
+                    </div>
+                    <div class="lib-card" data-place="hoverTable" tabindex="0">
+                      <canvas class="thumb-img" id="thumbHoverTable" width="112" height="112"></canvas>
+                      <div class="info"><div class="name">悬浮小茶几</div><div class="desc">单腿支撑 · 桌面微浮</div></div>
+                    </div>
+                    <div class="lib-card" data-place="roundRug" tabindex="0">
+                      <canvas class="thumb-img" id="thumbRoundRug" width="112" height="112"></canvas>
+                      <div class="info"><div class="name">可爱圆地毯</div><div class="desc">同心圆 · 奶黄粉蓝</div></div>
+                    </div>
+                    <div class="lib-card" data-place="musicPlayer" tabindex="0">
+                      <canvas class="thumb-img" id="thumbMusicPlayer" width="112" height="112"></canvas>
+                      <div class="info"><div class="name">轻柔音乐机</div><div class="desc">卡通留声机</div></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 🎮 娱乐区 -->
+            <div class="acc-item" data-zone-acc="fun">
+              <button type="button" class="acc-header acc-yellow" aria-expanded="false">
+                <span>🎮 娱乐区设备</span><span class="acc-chev" aria-hidden="true">▼</span>
+              </button>
+              <div class="acc-panel" role="region">
+                <div class="acc-panel-inner">
+                  <p class="acc-lv1-tip only-lv1">🔒 进入第二关后，可在此布置娱乐区微缩模型～</p>
+                  <div class="only-lv2">
+                    <div class="lib-card" data-place="rainbowMat" tabindex="0">
+                      <canvas class="thumb-img" id="thumbRainbowMat" width="112" height="112"></canvas>
+                      <div class="info"><div class="name">彩虹体感垫</div><div class="desc">3×3 发光格</div></div>
+                    </div>
+                    <div class="lib-card" data-place="doodle3D" tabindex="0">
+                      <canvas class="thumb-img" id="thumb3DDoodle" width="112" height="112"></canvas>
+                      <div class="info"><div class="name">3D全息涂鸦板</div><div class="desc">玻璃面板 · 彩块漂浮</div></div>
+                    </div>
+                    <div class="lib-card" data-place="hoverMetronome" tabindex="0">
+                      <canvas class="thumb-img" id="thumbHoverMetronome" width="112" height="112"></canvas>
+                      <div class="info"><div class="name">悬浮节拍器</div><div class="desc">倒三角锥 · 自转</div></div>
+                    </div>
+                    <div class="lib-card" data-place="virtualPet" tabindex="0">
+                      <canvas class="thumb-img" id="thumbVirtualPet" width="112" height="112"></canvas>
+                      <div class="info"><div class="name">虚拟宠物机</div><div class="desc">蛋形机 · 发光小屏</div></div>
+                    </div>
+                    <div class="lib-card" data-place="storyWall" tabindex="0">
+                      <canvas class="thumb-img" id="thumbStoryWall" width="112" height="112"></canvas>
+                      <div class="info"><div class="name">光影故事墙</div><div class="desc">投影光幕</div></div>
+                    </div>
+                    <div class="lib-card" data-place="gestureGame" tabindex="0">
+                      <canvas class="thumb-img" id="thumbGestureGame" width="112" height="112"></canvas>
+                      <div class="info"><div class="name">手势小游戏台</div><div class="desc">漂浮光球</div></div>
+                    </div>
+                    <div class="lib-card" data-place="bounceFloor" tabindex="0">
+                      <canvas class="thumb-img" id="thumbBounceFloor" width="112" height="112"></canvas>
+                      <div class="info"><div class="name">弹跳彩虹地板</div><div class="desc">弹簧圈细节</div></div>
+                    </div>
+                    <div class="lib-card" data-place="smartStage" tabindex="0">
+                      <canvas class="thumb-img" id="thumbSmartStage" width="112" height="112"></canvas>
+                      <div class="info"><div class="name">点唱小舞台</div><div class="desc">四盏舞台灯</div></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 🌿 自然角：架构占位，后续在此追加 lib-card -->
+            <div class="acc-item" data-zone-acc="nature">
+              <button type="button" class="acc-header acc-mint" aria-expanded="false">
+                <span>🌿 自然角设备</span><span class="acc-chev" aria-hidden="true">▼</span>
+              </button>
+              <div class="acc-panel" role="region">
+                <div class="acc-panel-inner">
+                  <p class="acc-lv1-tip only-lv1">🌱 解锁第二关后，就能在这里打造“自然角”啦～</p>
+                  <div class="only-lv2" id="natureZonePlaceholder">
+                    <div class="lib-card" data-place="glowGrass" tabindex="0">
+                      <canvas class="thumb-img" id="thumbGlowGrass" width="112" height="112"></canvas>
+                      <div class="info"><div class="name">梦幻发光草地</div><div class="desc">萤火虫闪闪</div></div>
+                    </div>
+                    <div class="lib-card" data-place="hoverPot" tabindex="0">
+                      <canvas class="thumb-img" id="thumbHoverPot" width="112" height="112"></canvas>
+                      <div class="info"><div class="name">悬浮盆栽</div><div class="desc">低模树冠</div></div>
+                    </div>
+                    <div class="lib-card" data-place="miniGreenhouse" tabindex="0">
+                      <canvas class="thumb-img" id="thumbMiniGreenhouse" width="112" height="112"></canvas>
+                      <div class="info"><div class="name">迷你阳光花房</div><div class="desc">玻璃罩 · 小植物</div></div>
+                    </div>
+                    <div class="lib-card" data-place="autoGarden" tabindex="0">
+                      <canvas class="thumb-img" id="thumbAutoGarden" width="112" height="112"></canvas>
+                      <div class="info"><div class="name">自动浇水花园</div><div class="desc">悬浮小水滴</div></div>
+                    </div>
+                    <div class="lib-card" data-place="treehouse" tabindex="0">
+                      <canvas class="thumb-img" id="thumbTreehouse" width="112" height="112"></canvas>
+                      <div class="info"><div class="name">卡通小树屋</div><div class="desc">树干+树冠+木屋</div></div>
+                    </div>
+                    <div class="lib-card" data-place="butterflyDeco" tabindex="0">
+                      <canvas class="thumb-img" id="thumbButterflyDeco" width="112" height="112"></canvas>
+                      <div class="info"><div class="name">蝴蝶光影装饰</div><div class="desc">翅膀拍动</div></div>
+                    </div>
+                    <div class="lib-card" data-place="cloudHammock" tabindex="0">
+                      <canvas class="thumb-img" id="thumbCloudHammock" width="112" height="112"></canvas>
+                      <div class="info"><div class="name">云朵小吊床</div><div class="desc">粉色弯弯</div></div>
+                    </div>
+                    <div class="lib-card" data-place="starProjector" tabindex="0">
+                      <canvas class="thumb-img" id="thumbStarProjector" width="112" height="112"></canvas>
+                      <div class="info"><div class="name">星空投影灯</div><div class="desc">小星星发光</div></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="lib-section-title">地板材质（默认 / 浅黄木地板 / 草地 / 彩虹）</div>
+          <p style="font-size:11px;color:#666;margin:0 4px 6px;">选一种即可完成「焕彩地面」任务</p>
+          <div class="floor-tex-row" id="floorSwatches"></div>
+        </div>
+      </aside>
+      <div class="viewport-wrap">
+        <div class="hint-panel">
+          🖱️ WASD/鼠标拖动 → 模型移动<br>
+          🔄 Z/C键 → 模型旋转<br>
+          📏 O/P键 → 模型升降
+        </div>
+        <button type="button" class="btn-delete-mode" id="btnDeleteMode" title="删除模式"><span class="del-ico">🗑️</span><span>删除</span></button>
+        <div id="canvas-container"></div>
+        <div class="loading-toast" id="loadingToast"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="victoryOverlay"><div class="victory-box">🎉 第一关通关！</div></div>
+
+  <!-- 第二关解锁弹窗：第一关全任务完成后出现 -->
+  <div class="unlock-mask" id="unlockMask" aria-hidden="true">
+    <div class="unlock-card" role="dialog" aria-label="解锁第二关">
+      <div class="unlock-title">🔑 解锁第二关</div>
+      <div class="unlock-desc">请输入解锁密码进入创意搭建！</div>
+      <div class="unlock-row">
+        <input id="unlockInput" class="unlock-input" inputmode="numeric" maxlength="3" placeholder="___" />
+        <button type="button" class="unlock-btn" id="unlockBtn">解锁</button>
+      </div>
+      <div class="unlock-tip" id="unlockTip">😜 密码不对哦，再试试！</div>
+    </div>
+  </div>
+
+  <script type="importmap">
+  { "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }}
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    /* ==================== 全局材质库 MaterialLib（后续微缩模型统一调用） ====================
+     * toyMat：马卡龙玩具感，高粗糙低金属；glowMat：霓虹/按钮发光；glassMat：全息玻璃感 */
+    const MaterialLib = {
+      toyMat: new THREE.MeshStandardMaterial({
+        color: 0xffc4d6,
+        roughness: 0.8,
+        metalness: 0.1
+      }),
+      glowMat(emissiveColor = 0xff9ec8) {
+        const c = typeof emissiveColor === 'number' ? emissiveColor : new THREE.Color(emissiveColor);
+        return new THREE.MeshStandardMaterial({
+          color: c,
+          emissive: c,
+          emissiveIntensity: 0.65,
+          roughness: 0.4,
+          metalness: 0.08
+        });
+      },
+      glassMat: new THREE.MeshPhysicalMaterial({
+        color: 0xffffff,
+        transmission: 0.8,
+        opacity: 0.6,
+        transparent: true,
+        roughness: 0.15,
+        metalness: 0,
+        thickness: 0.5,
+        ior: 1.45
+      })
+    };
+
+    /** 需要每帧更新动画的物体（悬浮 / 自转）；放入场景后 push，移除时 splice 避免空转 */
+    const animatedObjects = [];
+
+    /* 地板：默认 / 浅黄细木纹(canvas) / 草地(shader 摇曳) / 彩虹马卡龙(canvas) */
+
+    // ==================== 统一短音效（无背景音乐） ====================
+    // 说明：全部为短促音效，避免长音/循环，且做了节流以保证清爽不卡顿
+    const SFX = (() => {
+      const st = { ctx: null, last: new Map() };
+      function ensure() {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return null;
+        if (!st.ctx) st.ctx = new AC();
+        st.ctx.resume?.();
+        return st.ctx;
+      }
+      function canPlay(key, ms) {
+        const now = performance.now();
+        const prev = st.last.get(key) || 0;
+        if (now - prev < ms) return false;
+        st.last.set(key, now);
+        return true;
+      }
+      function beep({ f = 880, f2 = null, dur = 0.04, type = 'sine', gain = 0.06 }) {
+        const ctx = ensure();
+        if (!ctx) return;
+        const t0 = ctx.currentTime + 0.001;
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.type = type;
+        o.frequency.setValueAtTime(f, t0);
+        if (f2 != null) o.frequency.exponentialRampToValueAtTime(Math.max(40, f2), t0 + dur);
+        g.gain.setValueAtTime(0.0001, t0);
+        g.gain.exponentialRampToValueAtTime(gain, t0 + 0.008);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+        o.connect(g); g.connect(ctx.destination);
+        o.start(t0); o.stop(t0 + dur + 0.02);
+      }
+      return {
+        click() { if (canPlay('clk', 35)) beep({ f: 1050, f2: 760, dur: 0.03, type: 'triangle', gain: 0.055 }); },
+        key() { if (canPlay('key', 20)) beep({ f: 920, f2: 720, dur: 0.025, type: 'square', gain: 0.035 }); },
+        place() { if (canPlay('plc', 50)) beep({ f: 660, f2: 1320, dur: 0.05, type: 'sine', gain: 0.06 }); },
+        success() {
+          if (!canPlay('ok', 350)) return;
+          const ctx = ensure();
+          if (!ctx) return;
+          const t = ctx.currentTime + 0.01;
+          const seq = [
+            [988, 0.055], [1175, 0.055], [1319, 0.06], [1568, 0.08],
+          ];
+          seq.forEach(([f, d], i) => {
+            const o = ctx.createOscillator();
+            const g = ctx.createGain();
+            o.type = 'sine';
+            o.frequency.setValueAtTime(f, t + i * 0.07);
+            g.gain.setValueAtTime(0.0001, t + i * 0.07);
+            g.gain.exponentialRampToValueAtTime(0.06, t + i * 0.07 + 0.01);
+            g.gain.exponentialRampToValueAtTime(0.0001, t + i * 0.07 + d);
+            o.connect(g); g.connect(ctx.destination);
+            o.start(t + i * 0.07);
+            o.stop(t + i * 0.07 + d + 0.02);
+          });
+        }
+      };
+    })();
+
+    let loginFlowerRafId = null;
+    (function initLoginFlowers() {
+      const canvas = document.getElementById('loginFlowerCanvas');
+      const pageLogin = document.getElementById('page-login');
+      if (!canvas || !pageLogin) return;
+      const ctx = canvas.getContext('2d');
+      const MAX_FLOWERS = 18, MAX_FPS = 30, FRAME_MIN = 1000 / MAX_FPS;
+      // 中文注释：黑底拖影（还原为你贴的版本效果）
+      const TRAIL = 'rgba(26, 26, 46, 0.4)';
+      let flowers = [], lastT = 0, timeTick = 0, firstDraw = true;
+      // 点击生成小花：轻量粒子（不影响原花朵）
+      const clickFlowers = [];
+      function resize() {
+        const r = pageLogin.getBoundingClientRect(), d = Math.min(devicePixelRatio || 1, 2);
+        const cw = Math.max(1, r.width | 0), ch = Math.max(1, r.height | 0);
+        canvas.width = (cw * d) | 0; canvas.height = (ch * d) | 0;
+        canvas.style.width = cw + 'px'; canvas.style.height = ch + 'px';
+        ctx.setTransform(d, 0, 0, d, 0, 0); return { cw, ch };
+      }
+      // 背景已还原为黑底拖影，不再绘制山丘/云层
+      class F {
+        constructor(cw, ch) {
+          this.baseX = Math.random() * cw; this.baseY = ch;
+          this.targetH = ch * (0.24 + Math.random() * 0.42); this.curH = 0;
+          this.growSp = 1.4 + Math.random() * 2.4;
+          const c = ['#FF9EAA','#3AC6D4','#FDE047','#D8B4E2','#F8A8C2'];
+          this.color = c[Math.floor(Math.random() * c.length)];
+          this.swayOff = Math.random() * 6.28; this.petalN = 6 + (Math.random() * 5) | 0;
+          let t = 0; const cx = cw / 2;
+          while (Math.abs(this.baseX - cx) < cw * 0.2 && t++ < 20) this.baseX = Math.random() * cw;
+        }
+        update(t) {
+          if (this.curH < this.targetH) this.curH += this.growSp;
+          if (this.curH > this.targetH) this.curH = this.targetH;
+          this.sway = Math.sin(t * 0.017 + this.swayOff) * (22 + (this.curH / (this.targetH || 1)) * 20);
+        }
+        draw() {
+          const tx = this.baseX + this.sway * 0.42, ty = this.baseY - this.curH;
+          ctx.beginPath(); ctx.moveTo(this.baseX, this.baseY);
+          ctx.quadraticCurveTo(this.baseX + this.sway * 0.48, this.baseY - this.curH * 0.52, tx, ty);
+          ctx.strokeStyle = '#4A7C59'; ctx.lineWidth = 4.2; ctx.stroke();
+          if (this.curH >= this.targetH * 0.9) {
+            ctx.shadowBlur = 22; ctx.shadowColor = this.color; ctx.fillStyle = this.color;
+            const pr = 20;
+            for (let i = 0; i < this.petalN; i++) {
+              const a = (6.28318 / this.petalN) * i + timeTick * 0.009;
+              ctx.beginPath(); ctx.arc(tx + Math.cos(a) * pr, ty + Math.sin(a) * pr, 8.2, 0, 6.28); ctx.fill();
+            }
+            ctx.fillStyle = '#fff'; ctx.shadowBlur = 10; ctx.beginPath(); ctx.arc(tx, ty, 9.5, 0, 6.28); ctx.fill(); ctx.shadowBlur = 0;
+          }
+        }
+      }
+      function rebuild() {
+        const { cw, ch } = resize(); flowers = []; for (let i = 0; i < MAX_FLOWERS; i++) flowers.push(new F(cw, ch));
+      }
+      function spawnClickFlower(x, y) {
+        const c = ['#FF9EAA','#3AC6D4','#FDE047','#D8B4E2','#F8A8C2','#A8D8F8'];
+        clickFlowers.push({ x, y, t: 0, col: c[(Math.random() * c.length) | 0], n: 5 + ((Math.random() * 4) | 0), r: 10 + Math.random() * 10 });
+        if (clickFlowers.length > 40) clickFlowers.splice(0, clickFlowers.length - 40);
+      }
+      pageLogin.addEventListener('pointerdown', (ev) => {
+        const r = pageLogin.getBoundingClientRect();
+        spawnClickFlower(ev.clientX - r.left, ev.clientY - r.top);
+        SFX.click();
+      }, { passive: true });
+      function tick(now) {
+        if (pageLogin.classList.contains('is-hidden')) { loginFlowerRafId = null; return; }
+        if (now - lastT < FRAME_MIN) { loginFlowerRafId = requestAnimationFrame(tick); return; }
+        lastT = now; const w = pageLogin.clientWidth, h = pageLogin.clientHeight;
+        // 中文注释：黑底拖影绘制（第一帧实心黑底，其后叠加透明拖影）
+        if (firstDraw) { ctx.fillStyle = '#1A1A2E'; ctx.fillRect(0, 0, w, h); firstDraw = false; }
+        else { ctx.fillStyle = TRAIL; ctx.fillRect(0, 0, w, h); }
+        timeTick += 0.85; flowers.forEach(f => { f.update(timeTick); f.draw(); });
+        // 点击小花：短暂绽放后消失
+        for (let i = clickFlowers.length - 1; i >= 0; i--) {
+          const cf = clickFlowers[i];
+          cf.t += 1;
+          const life = 46;
+          const p = Math.min(1, cf.t / life);
+          const alpha = (1 - p) * 0.95;
+          const r = cf.r * (0.7 + p * 0.9);
+          ctx.save();
+          ctx.globalAlpha = alpha;
+          ctx.shadowBlur = 14;
+          ctx.shadowColor = cf.col;
+          ctx.fillStyle = cf.col;
+          for (let k = 0; k < cf.n; k++) {
+            const a = (6.28318 / cf.n) * k;
+            ctx.beginPath();
+            ctx.arc(cf.x + Math.cos(a) * r, cf.y + Math.sin(a) * r, 5.5, 0, 6.28);
+            ctx.fill();
+          }
+          ctx.shadowBlur = 8;
+          ctx.fillStyle = '#fff';
+          ctx.beginPath(); ctx.arc(cf.x, cf.y, 6.3, 0, 6.28); ctx.fill();
+          ctx.restore();
+          if (cf.t >= life) clickFlowers.splice(i, 1);
+        }
+        loginFlowerRafId = requestAnimationFrame(tick);
+      }
+      window.stopLoginFlowerCanvas = () => { if (loginFlowerRafId) cancelAnimationFrame(loginFlowerRafId); loginFlowerRafId = null; };
+      rebuild(); loginFlowerRafId = requestAnimationFrame(tick);
+      window.addEventListener('resize', () => { if (!pageLogin.classList.contains('is-hidden')) { rebuild(); timeTick = 0; firstDraw = true; } });
+    })();
+
+    // ---------- 高清素材库图标（Canvas 绘制 ≥ 逻辑 256，用于侧栏） ----------
+    function drawThumbDesk(c) {
+      const ctx = c.getContext('2d'), s = c.width;
+      ctx.fillStyle = '#e1f5fe'; ctx.fillRect(0, 0, s, s);
+      const g = ctx.createLinearGradient(0, 0, s, s); g.addColorStop(0, '#b0bec5'); g.addColorStop(1, '#eceff1');
+      ctx.fillStyle = g; ctx.fillRect(s * 0.15, s * 0.42, s * 0.7, s * 0.22);
+      ctx.fillStyle = '#90a4ae'; ctx.fillRect(s * 0.28, s * 0.62, s * 0.18, s * 0.2);
+      ctx.shadowColor = 'rgba(0,0,0,0.25)'; ctx.shadowBlur = 6; ctx.fillStyle = '#cfd8dc';
+      ctx.fillRect(s * 0.52, s * 0.52, s * 0.22, s * 0.28); ctx.shadowBlur = 0;
+    }
+    function drawThumbHolo(c) {
+      const ctx = c.getContext('2d'), s = c.width;
+      ctx.fillStyle = '#1a237e'; ctx.fillRect(0, 0, s, s);
+      ctx.strokeStyle = '#00e5ff'; ctx.lineWidth = 4; ctx.shadowColor = '#00e5ff'; ctx.shadowBlur = 12;
+      ctx.strokeRect(10, 14, s - 20, s - 28); ctx.shadowBlur = 0;
+      ctx.fillStyle = 'rgba(100, 200, 255, 0.35)'; ctx.fillRect(18, 22, s - 36, s - 44);
+    }
+
+    // ---------- 第二关缩略图：简单底色 + 图形/文字标识（防空白） ----------
+    function drawMiniThumb(canvas, opts) {
+      if (!canvas) return;
+      const c = canvas;
+      const s = c.width || 112;
+      c.width = s; c.height = s;
+      const ctx = c.getContext('2d');
+      const bg = opts.bg || '#ffffff';
+      const accent = opts.accent || '#E91E63';
+      ctx.clearRect(0, 0, s, s);
+      ctx.fillStyle = bg; ctx.fillRect(0, 0, s, s);
+      // 外框
+      ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = 4;
+      ctx.strokeRect(6, 6, s - 12, s - 12);
+      // 标题（两行以内）
+      ctx.fillStyle = '#37474f';
+      ctx.font = '900 14px "Microsoft YaHei", Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const t1 = (opts.t1 || '').slice(0, 8);
+      const t2 = (opts.t2 || '').slice(0, 8);
+      if (t1) ctx.fillText(t1, s / 2, s * 0.78);
+      if (t2) ctx.fillText(t2, s / 2, s * 0.90);
+      // 简单图形
+      ctx.save();
+      ctx.translate(s / 2, s * 0.42);
+      ctx.fillStyle = accent;
+      ctx.strokeStyle = 'rgba(255,255,255,0.75)';
+      ctx.lineWidth = 3;
+      const kind = opts.kind || 'dot';
+      if (kind === 'desk') {
+        ctx.fillRect(-30, -6, 60, 14);
+        ctx.fillStyle = 'rgba(255,255,255,0.75)'; ctx.fillRect(-18, 10, 6, 16); ctx.fillRect(12, 10, 6, 16);
+        ctx.strokeStyle = 'rgba(180,140,255,0.9)'; ctx.strokeRect(-26, -34, 52, 22);
+        ctx.fillStyle = 'rgba(180,140,255,0.18)'; ctx.fillRect(-26, -34, 52, 22);
+      } else if (kind === 'bot') {
+        ctx.beginPath(); ctx.arc(0, 0, 22, 0, 6.28); ctx.fill();
+        ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(-8, -2, 6, 0, 6.28); ctx.fill(); ctx.beginPath(); ctx.arc(8, -2, 6, 0, 6.28); ctx.fill();
+        ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(-8, -2, 2.5, 0, 6.28); ctx.fill(); ctx.beginPath(); ctx.arc(8, -2, 2.5, 0, 6.28); ctx.fill();
+        ctx.strokeStyle = '#B2FF59'; ctx.beginPath(); ctx.moveTo(0, -22); ctx.lineTo(6, -38); ctx.stroke();
+        ctx.fillStyle = '#B2FF59'; ctx.beginPath(); ctx.arc(6, -38, 4, 0, 6.28); ctx.fill();
+      } else if (kind === 'board') {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(-32, -18, 64, 40);
+        ctx.strokeStyle = accent; ctx.strokeRect(-32, -18, 64, 40);
+        ctx.fillStyle = 'rgba(248,187,208,0.35)'; ctx.fillRect(-32, 18, 64, 6);
+        // 三个按钮
+        ['#F8BBD0','#B3E5FC','#FFF9C4'].forEach((col,i)=>{ ctx.fillStyle=col; ctx.beginPath(); ctx.arc(-12 + i*12, 25, 3.5, 0, 6.28); ctx.fill(); });
+      } else if (kind === 'sofa') {
+        ctx.fillStyle = accent; ctx.beginPath(); ctx.ellipse(0, 0, 28, 18, 0, 0, 6.28); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.25)'; ctx.beginPath(); ctx.ellipse(-6, -3, 14, 8, 0, 0, 6.28); ctx.fill();
+        ctx.strokeStyle = 'rgba(178,255,89,0.8)'; ctx.beginPath(); ctx.ellipse(0, 26, 18, 6, 0, 0, 6.28); ctx.stroke();
+      } else if (kind === 'water') {
+        ctx.fillStyle = accent; ctx.fillRect(-18, -28, 36, 56);
+        ctx.fillStyle = '#fff'; ctx.fillRect(-12, -8, 24, 30);
+        ctx.fillStyle = '#FFE082'; ctx.fillRect(10, -2, 16, 6);
+        ctx.fillStyle = '#80D8FF'; ctx.beginPath(); ctx.arc(-10, -18, 6, 0, 6.28); ctx.fill();
+        ctx.fillStyle = 'rgba(128,216,255,0.55)'; ctx.fillRect(22, 6, 4, 18);
+      } else if (kind === 'mat') {
+        const gr = ctx.createLinearGradient(-30, -20, 30, 20);
+        gr.addColorStop(0,'#FFB7C5'); gr.addColorStop(0.33,'#FFF9C4'); gr.addColorStop(0.66,'#B3E5FC'); gr.addColorStop(1,'#C8E6C9');
+        ctx.fillStyle = gr;
+        ctx.fillRect(-34, -22, 68, 44);
+        ctx.strokeStyle = 'rgba(255,255,255,0.75)';
+        for (let i = -30; i <= 30; i += 10) { ctx.beginPath(); ctx.moveTo(i, -22); ctx.lineTo(i, 22); ctx.stroke(); }
+        for (let j = -20; j <= 20; j += 10) { ctx.beginPath(); ctx.moveTo(-34, j); ctx.lineTo(34, j); ctx.stroke(); }
+        ctx.strokeStyle = 'rgba(180,140,255,0.8)'; ctx.strokeRect(-34, -22, 68, 44);
+      } else if (kind === 'graffiti') {
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(-32, -18, 64, 40);
+        ctx.strokeStyle = 'rgba(128,216,255,0.9)'; ctx.strokeRect(-32, -18, 64, 40);
+        const cols=['#e91e63','#00bcd4','#ffeb3b','#8bc34a','#ab47bc'];
+        for(let i=0;i<4;i++){
+          ctx.strokeStyle=cols[i%cols.length]; ctx.lineWidth=4;
+          ctx.beginPath();
+          ctx.moveTo(-24, -10 + i*8);
+          ctx.lineTo(-8, -12 + i*8);
+          ctx.lineTo(8, -6 + i*8);
+          ctx.lineTo(24, -10 + i*8);
+          ctx.stroke();
+        }
+        ctx.fillStyle = '#CFD8DC'; ctx.fillRect(-16, 22, 32, 6);
+      } else {
+        ctx.beginPath(); ctx.arc(0, 0, 18, 0, 6.28); ctx.fill();
+      }
+      ctx.restore();
+    }
+    try {
+      drawThumbDesk(document.getElementById('thumbDesk'));
+      drawThumbHolo(document.getElementById('thumbHolo'));
+      const tw = document.getElementById('thumbWhite');
+      const tcx = tw.getContext('2d'); const s = tw.width;
+      tcx.fillStyle = '#fffde7'; tcx.fillRect(0, 0, s, s);
+      tcx.fillStyle = '#fafafa'; tcx.fillRect(12, 10, s - 24, s - 36);
+      tcx.fillStyle = '#deb887'; tcx.fillRect(s * 0.35, s * 0.72, s * 0.3, s * 0.18);
+
+      // 第二关 · 学习区 8 款微缩模型缩略图
+      drawMiniThumb(document.getElementById('thumbHoloDesk'), { bg: '#E3F2FD', accent: '#B388FF', kind: 'desk', t1: '全息', t2: '课桌' });
+      drawMiniThumb(document.getElementById('thumbHoverLamp'), { bg: '#FFF9E6', accent: '#FFE082', kind: 'dot', t1: '悬浮', t2: '台灯' });
+      drawMiniThumb(document.getElementById('thumbAiRobot'), { bg: '#FFF9C4', accent: '#90CAF9', kind: 'bot', t1: 'AI', t2: '机器人' });
+      drawMiniThumb(document.getElementById('thumbFutureBoard'), { bg: '#ffffff', accent: '#F8BBD0', kind: 'board', t1: '未来', t2: '黑板' });
+      drawMiniThumb(document.getElementById('thumbVoiceMachine'), { bg: '#FFCCBC', accent: '#FFAB91', kind: 'dot', t1: '语音', t2: '答题' });
+      drawMiniThumb(document.getElementById('thumbAutoShelf'), { bg: '#FFE0B2', accent: '#CE93D8', kind: 'dot', t1: '自动', t2: '书架' });
+      drawMiniThumb(document.getElementById('thumbSmartChair'), { bg: '#B3E5FC', accent: '#F8BBD0', kind: 'sofa', t1: '智能', t2: '座椅' });
+      drawMiniThumb(document.getElementById('thumbProjector3D'), { bg: '#E1F5FE', accent: '#80DEEA', kind: 'dot', t1: '3D', t2: '展示台' });
+
+      // 第二关 · 休息区 8 款缩略图（云朵感）
+      drawMiniThumb(document.getElementById('thumbCloudSofa'), { bg: '#ffffff', accent: '#B3E5FC', kind: 'sofa', t1: '云朵', t2: '沙发' });
+      drawMiniThumb(document.getElementById('thumbPillowSeat'), { bg: '#FFF9C4', accent: '#F8BBD0', kind: 'sofa', t1: '抱枕', t2: '座椅' });
+      drawMiniThumb(document.getElementById('thumbSmartWater'), { bg: '#E3F2FD', accent: '#80D8FF', kind: 'water', t1: '温感', t2: '饮水' });
+      drawMiniThumb(document.getElementById('thumbAromaPurifier'), { bg: '#FFF9E6', accent: '#B3E5FC', kind: 'dot', t1: '香薰', t2: '净化' });
+      drawMiniThumb(document.getElementById('thumbMiniWindow'), { bg: '#E3F2FD', accent: '#FFF59D', kind: 'dot', t1: '阳光', t2: '窗' });
+      drawMiniThumb(document.getElementById('thumbHoverTable'), { bg: '#ffffff', accent: '#D1C4E9', kind: 'dot', t1: '悬浮', t2: '茶几' });
+      drawMiniThumb(document.getElementById('thumbRoundRug'), { bg: '#FFF9C4', accent: '#B3E5FC', kind: 'mat', t1: '圆形', t2: '地毯' });
+      drawMiniThumb(document.getElementById('thumbMusicPlayer'), { bg: '#FCE4EC', accent: '#B3E5FC', kind: 'dot', t1: '音乐', t2: '机' });
+
+      // 第二关 · 娱乐区 8 款缩略图（彩虹发光）
+      drawMiniThumb(document.getElementById('thumbRainbowMat'), { bg: '#ffffff', accent: '#B388FF', kind: 'mat', t1: '彩虹', t2: '垫' });
+      drawMiniThumb(document.getElementById('thumb3DDoodle'), { bg: '#ffffff', accent: '#80D8FF', kind: 'graffiti', t1: '3D', t2: '涂鸦' });
+      drawMiniThumb(document.getElementById('thumbHoverMetronome'), { bg: '#FCE4EC', accent: '#FFB7C5', kind: 'dot', t1: '悬浮', t2: '节拍' });
+      drawMiniThumb(document.getElementById('thumbVirtualPet'), { bg: '#FFF9C4', accent: '#80DEEA', kind: 'bot', t1: '虚拟', t2: '宠物' });
+      drawMiniThumb(document.getElementById('thumbStoryWall'), { bg: '#E1F5FE', accent: '#B388FF', kind: 'board', t1: '故事', t2: '墙' });
+      drawMiniThumb(document.getElementById('thumbGestureGame'), { bg: '#FFCCBC', accent: '#B2FF59', kind: 'dot', t1: '手势', t2: '游戏' });
+      drawMiniThumb(document.getElementById('thumbBounceFloor'), { bg: '#ffffff', accent: '#FFB7C5', kind: 'mat', t1: '弹跳', t2: '地板' });
+      drawMiniThumb(document.getElementById('thumbSmartStage'), { bg: '#E1BEE7', accent: '#80DEEA', kind: 'dot', t1: '点唱', t2: '舞台' });
+
+      // 第二关 · 自然角 8 款缩略图（薄荷自然光）
+      drawMiniThumb(document.getElementById('thumbGlowGrass'), { bg: '#E8F5E9', accent: '#B2FF59', kind: 'mat', t1: '发光', t2: '草地' });
+      drawMiniThumb(document.getElementById('thumbHoverPot'), { bg: '#E8F5E9', accent: '#FFCCBC', kind: 'dot', t1: '悬浮', t2: '盆栽' });
+      drawMiniThumb(document.getElementById('thumbMiniGreenhouse'), { bg: '#E3F2FD', accent: '#C8E6C9', kind: 'dot', t1: '阳光', t2: '花房' });
+      drawMiniThumb(document.getElementById('thumbAutoGarden'), { bg: '#E8F5E9', accent: '#80D8FF', kind: 'water', t1: '自动', t2: '浇水' });
+      drawMiniThumb(document.getElementById('thumbTreehouse'), { bg: '#E8F5E9', accent: '#8BC34A', kind: 'dot', t1: '小', t2: '树屋' });
+      drawMiniThumb(document.getElementById('thumbButterflyDeco'), { bg: '#ffffff', accent: '#F8BBD0', kind: 'dot', t1: '蝴蝶', t2: '装饰' });
+      drawMiniThumb(document.getElementById('thumbCloudHammock'), { bg: '#ffffff', accent: '#FFB7C5', kind: 'sofa', t1: '云朵', t2: '吊床' });
+      drawMiniThumb(document.getElementById('thumbStarProjector'), { bg: '#E3F2FD', accent: '#FFF59D', kind: 'dot', t1: '星空', t2: '灯' });
+    } catch (e) {}
+
+    /* 手风琴：点击标题展开/收起（同时只展开一项，典型 accordion） */
+    (function initModelAccordion() {
+      const root = document.getElementById('modelAccordion');
+      if (!root) return;
+      root.querySelectorAll('.acc-item').forEach((item) => {
+        const btn = item.querySelector('.acc-header');
+        if (!btn) return;
+        btn.addEventListener('click', () => {
+          SFX.click();
+          const wasOpen = item.classList.contains('open');
+          root.querySelectorAll('.acc-item').forEach((el) => {
+            el.classList.remove('open');
+            const h = el.querySelector('.acc-header');
+            if (h) h.setAttribute('aria-expanded', 'false');
+          });
+          if (!wasOpen) {
+            item.classList.add('open');
+            btn.setAttribute('aria-expanded', 'true');
+          }
+        });
+      });
+    })();
+
+    let scene, camera, renderer, controls, raycaster, pointer;
+    let floorMesh, roomGroup;
+    const placedRoots = [];
+    let trashRoots = [];
+    let selectedRoot = null;
+    let draggingRoot = null;
+    let deleteMode = false;
+    let floorMatKey = 'default';
+    const taskDone = [false, false, false, false];
+    let task3BoardZcDone = false;
+    let level1CompleteShown = false;
+    // ==================== 第二关状态（通关解锁 + 场景沿用） ====================
+    let currentLevel = 1;
+    let level2Unlocked = false;
+    const lv2Done = { study: false, rest: false, fun: false };
+    let pendingZoneSign = null; // 'study' | 'rest' | 'fun'
+    const GRID = 0.5;
+    THREE.Cache.enabled = true;
+
+    const container = document.getElementById('canvas-container');
+    const modeBanner = document.getElementById('modeBanner');
+    const btnDeleteMode = document.getElementById('btnDeleteMode');
+    const taskPanel = document.getElementById('taskPanel');
+    const levelWrap = document.getElementById('levelDropdownWrap');
+    const levelTrigger = document.getElementById('levelDdTrigger');
+    const levelPanel = document.getElementById('levelDdPanel');
+
+    function snap(v) { return Math.round(v / GRID) * GRID; }
+    function showBanner(t) { modeBanner.textContent = t; modeBanner.classList.add('show'); setTimeout(() => modeBanner.classList.remove('show'), 2800); }
+
+    /** 可口可乐风 PET 饮料瓶（红白带 + 黑盖，细长瓶身） */
+    function createColaBottle() {
+      const grp = new THREE.Group();
+      grp.userData.isTrash = true;
+      const pts = [
+        new THREE.Vector2(0.001, 0), new THREE.Vector2(0.045, 0.008), new THREE.Vector2(0.095, 0.05),
+        new THREE.Vector2(0.11, 0.12), new THREE.Vector2(0.108, 0.2), new THREE.Vector2(0.1, 0.28),
+        new THREE.Vector2(0.072, 0.36), new THREE.Vector2(0.048, 0.42), new THREE.Vector2(0.038, 0.48),
+        new THREE.Vector2(0.034, 0.54), new THREE.Vector2(0.038, 0.58)
+      ];
+      const bodyGeo = new THREE.LatheGeometry(pts, 28);
+      const cv = document.createElement('canvas'); cv.width = 256; cv.height = 512;
+      const cx = cv.getContext('2d');
+      const gr = cx.createLinearGradient(0, 0, 256, 0);
+      gr.addColorStop(0, '#b71c1c'); gr.addColorStop(0.35, '#e53935'); gr.addColorStop(0.5, '#ef5350'); gr.addColorStop(0.65, '#e53935'); gr.addColorStop(1, '#b71c1c');
+      cx.fillStyle = gr; cx.fillRect(0, 0, 256, 512);
+      cx.fillStyle = '#fafafa'; cx.fillRect(0, 168, 256, 88);
+      cx.fillStyle = '#212121'; cx.fillRect(0, 0, 256, 44);
+      cx.fillStyle = '#e53935'; cx.font = 'bold italic 28px Georgia,Arial'; cx.textAlign = 'center';
+      cx.fillText('Cola', 128, 228);
+      cx.strokeStyle = 'rgba(0,0,0,0.2)'; cx.lineWidth = 2;
+      cx.beginPath(); cx.moveTo(20, 220); for (let x = 20; x < 236; x += 12) cx.lineTo(x, 218 + Math.sin(x / 14) * 5); cx.stroke();
+      const map = new THREE.CanvasTexture(cv); map.colorSpace = THREE.SRGBColorSpace;
+      map.wrapS = THREE.ClampToEdgeWrapping; map.wrapT = THREE.ClampToEdgeWrapping;
+      const bodyMat = new THREE.MeshStandardMaterial({ map, roughness: 0.35, metalness: 0.08 });
+      const body = new THREE.Mesh(bodyGeo, bodyMat); body.castShadow = true; body.position.y = 0.29; grp.add(body);
+      const cap = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.036, 0.04, 0.055, 12),
+        new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.4, metalness: 0.3 })
+      );
+      cap.position.y = 0.605; grp.add(cap);
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.038, 0.012, 8, 16), new THREE.MeshStandardMaterial({ color: 0xf5f5f5, roughness: 0.5 }));
+      ring.rotation.x = Math.PI / 2; ring.position.y = 0.565; grp.add(ring);
+      grp.traverse(o => { if (o.isMesh) o.userData.trashRoot = grp; });
+      return grp;
+    }
+
+    function spawnTrash(count) {
+      trashRoots.forEach(t => { scene.remove(t); t.traverse(ch => { if (ch.geometry) ch.geometry.dispose(); if (ch.material) (Array.isArray(ch.material)?ch.material:[ch.material]).forEach(m=>m.dispose?.()); }); });
+      trashRoots = [];
+      const n = Math.max(5, Math.min(8, count || (5 + (Math.random() * 4) | 0)));
+      for (let i = 0; i < n; i++) {
+        const b = createColaBottle();
+        b.position.set(snap((Math.random() - 0.5) * 10), 0, snap((Math.random() - 0.5) * 10));
+        if (Math.abs(b.position.x) < 1 && Math.abs(b.position.z) < 1) b.position.x += 2;
+        scene.add(b); trashRoots.push(b);
+      }
+    }
+
+    /** 组合课桌椅 userData.kind = deskSet */
+    function createDeskSet() {
+      const g = new THREE.Group();
+      g.userData.kind = 'deskSet';
+      g.userData.isPlacedModel = true;
+      const metal = new THREE.MeshStandardMaterial({ color: 0xb0bec5, metalness: 0.35, roughness: 0.4 });
+      const top = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.06, 0.65, 2, 1, 2), metal);
+      top.position.y = 0.55; top.castShadow = true; g.add(top);
+      const leg = new THREE.CylinderGeometry(0.04, 0.05, 0.5, 8);
+      [[-0.45, 0.25, -0.25], [0.45, 0.25, -0.25], [-0.45, 0.25, 0.25], [0.45, 0.25, 0.25]].forEach(([x, y, z]) => {
+        const m = new THREE.Mesh(leg, metal); m.position.set(x, y, z); m.castShadow = true; g.add(m);
+      });
+      const chairSeat = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.05, 0.38, 2, 1, 2), metal);
+      chairSeat.position.set(0.35, 0.32, -0.45); chairSeat.castShadow = true; g.add(chairSeat);
+      const back = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.42, 0.06, 2, 1, 1), metal);
+      back.position.set(0.35, 0.55, -0.62); g.add(back);
+      g.position.set(0, 0, 0);
+      g.traverse(o => { if (o.isMesh) o.userData.placedRoot = g; });
+      return g;
+    }
+
+    /** 全息黑板 + 讲台 userData.isBoard = true */
+    function createHoloBoard() {
+      const g = new THREE.Group();
+      g.userData.isPlacedModel = true; g.userData.isBoard = true;
+      const frame = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.35, 0.08, 2, 2, 1), new THREE.MeshStandardMaterial({ color: 0x00bcd4, emissive: 0x00838f, emissiveIntensity: 0.6 }));
+      frame.position.set(0, 1.1, 0); frame.castShadow = true; g.add(frame);
+      const holo = new THREE.Mesh(
+        new THREE.PlaneGeometry(2.15, 1.15),
+        new THREE.MeshPhysicalMaterial({
+          color: 0x88ccff, metalness: 0.1, roughness: 0.15, transmission: 0.45, transparent: true, opacity: 0.85, side: THREE.DoubleSide,
+        })
+      );
+      holo.position.set(0, 1.1, 0.05); g.add(holo);
+      const pod = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.75, 0.55, 2, 2, 2), new THREE.MeshStandardMaterial({ color: 0x90a4ae, metalness: 0.25, roughness: 0.5 }));
+      pod.position.set(0, 0.375, 0.6); pod.castShadow = true; g.add(pod);
+      g.rotation.y = 0.55;
+      g.traverse(o => { if (o.isMesh) o.userData.placedRoot = g; });
+      return g;
+    }
+
+    function createWhiteBoard() {
+      const g = new THREE.Group();
+      g.userData.isPlacedModel = true; g.userData.isBoard = true;
+      const board = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.2, 0.06, 2, 2, 1), new THREE.MeshStandardMaterial({ color: 0xf5f5f5, roughness: 0.85 }));
+      board.position.set(0, 1.05, 0); g.add(board);
+      const pod = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.7, 0.5, 2, 2, 2), new THREE.MeshStandardMaterial({ color: 0xd7ccc8 }));
+      pod.position.set(0, 0.35, 0.55); g.add(pod);
+      g.rotation.y = -0.48;
+      g.traverse(o => { if (o.isMesh) o.userData.placedRoot = g; });
+      return g;
+    }
+
+    // ==================== 第二关：微缩未来感模型预设（低面数 ≤800） ====================
+    // 中文注释：尺寸修改位置统一在各函数内的 scale / geometry 参数
+    function makeIconTexture(drawFn, w = 256, h = 256) {
+      const c = document.createElement('canvas'); c.width = w; c.height = h;
+      const x = c.getContext('2d');
+      drawFn(x, w, h);
+      const t = new THREE.CanvasTexture(c);
+      t.colorSpace = THREE.SRGBColorSpace;
+      return t;
+    }
+
+    /**
+     * ModelFactory：第二关学习区微缩模型（胶囊/圆柱/球体为主，马卡龙色，禁用生硬 Box）
+     * 动画物体请加入全局 animatedObjects；删除模型时 animate 会剔除已脱离场景的引用。
+     */
+    const ModelFactory = (() => {
+      const M = {
+        pink: 0xffc4d6, blue: 0xa8d8ea, yellow: 0xfff4b8, mint: 0xb2dfdb,
+        lavender: 0xe1bee7, peach: 0xffccbc, cream: 0xfff8e7, lilac: 0xd1c4e9
+      };
+      function toy(hex) {
+        const m = MaterialLib.toyMat.clone();
+        m.color.setHex(hex);
+        return m;
+      }
+      function wireRoot(g, kind) {
+        g.userData.kind = kind;
+        g.userData.isPlacedModel = true;
+        g.traverse(o => { if (o.isMesh) o.userData.placedRoot = g; });
+        return g;
+      }
+      return {
+        /** 全息智能课桌：玻璃圆桌面 + 极细胶囊体拼成的悬浮全息框 */
+        createHoloDesk() {
+          const g = new THREE.Group();
+          const legGeo = new THREE.CapsuleGeometry(0.022, 0.19, 6, 12);
+          [[-0.27, -0.17], [0.27, -0.17], [-0.27, 0.17], [0.27, 0.17]].forEach(([x, z]) => {
+            const m = new THREE.Mesh(legGeo, toy(M.pink));
+            m.position.set(x, 0.095, z);
+            m.castShadow = true;
+            g.add(m);
+          });
+          const glass = MaterialLib.glassMat.clone();
+          const top = new THREE.Mesh(new THREE.CylinderGeometry(0.40, 0.42, 0.026, 40, 2), glass);
+          top.position.y = 0.218;
+          top.castShadow = true;
+          g.add(top);
+          const holo = new THREE.Group();
+          holo.position.set(0, 0.36, 0);
+          const frameMat = new THREE.MeshStandardMaterial({
+            color: M.lilac, emissive: 0xce93d8, emissiveIntensity: 0.5, roughness: 0.38, metalness: 0.05
+          });
+          const fw = 0.33, fh = 0.21, r = 0.006;
+          const barH = new THREE.Mesh(new THREE.CapsuleGeometry(r, fw, 4, 10), frameMat);
+          barH.rotation.z = Math.PI / 2;
+          const barV = new THREE.Mesh(new THREE.CapsuleGeometry(r, fh, 4, 10), frameMat);
+          barV.rotation.x = Math.PI / 2;
+          const topB = barH.clone(); topB.position.set(0, fh * 0.5, 0);
+          const botB = barH.clone(); botB.position.set(0, -fh * 0.5, 0);
+          const leftB = barV.clone(); leftB.position.set(-fw * 0.5, 0, 0);
+          const rightB = barV.clone(); rightB.position.set(fw * 0.5, 0, 0);
+          holo.add(topB, botB, leftB, rightB);
+          const holoFace = new THREE.Mesh(
+            new THREE.CircleGeometry(Math.min(fw, fh) * 0.42, 36),
+            new THREE.MeshStandardMaterial({
+              color: 0xc5b3e8, emissive: 0x9575cd, emissiveIntensity: 0.32,
+              transparent: true, opacity: 0.5, side: THREE.DoubleSide, roughness: 0.45
+            })
+          );
+          holoFace.rotation.x = -Math.PI / 2 + 0.15;
+          holoFace.position.z = 0.015;
+          holo.add(holoFace);
+          holo.userData.isFloating = true;
+          holo.userData.floatAmp = 0.032;
+          holo.userData.floatPhase = 0.4;
+          animatedObjects.push(holo);
+          g.add(holo);
+          return wireRoot(g, 'holoDesk');
+        },
+        /** 悬浮护眼台灯：扁球灯头 + 圆柱杆，整组上下浮动 */
+        createHoverLamp() {
+          const g = new THREE.Group();
+          const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.028, 0.20, 28), toy(M.blue));
+          pole.position.y = 0.10;
+          pole.castShadow = true;
+          g.add(pole);
+          const head = new THREE.Mesh(
+            new THREE.SphereGeometry(0.13, 26, 20),
+            new THREE.MeshStandardMaterial({ color: 0xfff9e6, emissive: 0xffecb3, emissiveIntensity: 0.35, roughness: 0.48 })
+          );
+          head.scale.set(1.2, 0.38, 1.2);
+          head.position.y = 0.245;
+          head.castShadow = true;
+          const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.055, 18, 14), MaterialLib.glowMat(0xffe082));
+          bulb.position.set(0, -0.035, 0);
+          head.add(bulb);
+          g.add(head);
+          g.userData.isFloating = true;
+          g.userData.floatAmp = 0.048;
+          g.userData.floatPhase = 1.2;
+          animatedObjects.push(g);
+          return wireRoot(g, 'hoverLamp');
+        },
+        /** AI 答疑机器人：胶囊身体 + 球头 + glowMat 脸屏 */
+        createAiRobot() {
+          const g = new THREE.Group();
+          const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.095, 0.12, 8, 18), toy(M.yellow));
+          body.position.y = 0.14;
+          body.castShadow = true;
+          g.add(body);
+          const head = new THREE.Mesh(new THREE.SphereGeometry(0.085, 22, 18), toy(M.cream));
+          head.position.y = 0.30;
+          head.castShadow = true;
+          g.add(head);
+          const face = new THREE.Mesh(new THREE.SphereGeometry(0.048, 20, 16), MaterialLib.glowMat(0x90caf9));
+          face.scale.set(1.05, 1.2, 0.32);
+          face.position.set(0, 0.30, 0.068);
+          g.add(face);
+          const eyeGeo = new THREE.SphereGeometry(0.014, 12, 10);
+          const eyeMat = new THREE.MeshStandardMaterial({ color: 0x37474f, roughness: 0.4 });
+          const e1 = new THREE.Mesh(eyeGeo, eyeMat);
+          e1.position.set(-0.026, 0.032, 0.092);
+          const e2 = e1.clone();
+          e2.position.x = 0.026;
+          face.add(e1, e2);
+          const ant = new THREE.Mesh(new THREE.CapsuleGeometry(0.01, 0.07, 4, 8), toy(M.mint));
+          ant.position.set(0, 0.095, 0);
+          ant.rotation.z = 0.45;
+          head.add(ant);
+          const tip = new THREE.Mesh(new THREE.SphereGeometry(0.018, 10, 8), MaterialLib.glowMat(0xffab91));
+          tip.position.set(0.02, 0.14, 0);
+          head.add(tip);
+          return wireRoot(g, 'aiRobot');
+        },
+        /** 未来电子黑板：平面屏 + 圆柱拼发光边框 */
+        createFutureBoard() {
+          const g = new THREE.Group();
+          g.userData.isBoard = true;
+          const pw = 0.50, ph = 0.34;
+          const panel = new THREE.Mesh(
+            new THREE.PlaneGeometry(pw, ph),
+            new THREE.MeshStandardMaterial({ color: 0xfafafa, roughness: 0.9, side: THREE.DoubleSide })
+          );
+          panel.position.set(0, 0.50, 0);
+          g.add(panel);
+          const glow = new THREE.MeshStandardMaterial({
+            color: M.pink, emissive: 0xf48fb1, emissiveIntensity: 0.62, roughness: 0.35, metalness: 0.06
+          });
+          const tube = 0.016;
+          const top = new THREE.Mesh(new THREE.CylinderGeometry(tube, tube, pw + tube * 2, 22), glow);
+          top.rotation.z = Math.PI / 2;
+          top.position.set(0, 0.50 + ph * 0.5 + tube, 0.012);
+          const bot = top.clone();
+          bot.position.set(0, 0.50 - ph * 0.5 - tube, 0.012);
+          const left = new THREE.Mesh(new THREE.CylinderGeometry(tube, tube, ph + tube * 2, 22), glow.clone());
+          left.position.set(-pw * 0.5 - tube, 0.50, 0.012);
+          const right = left.clone();
+          right.position.set(pw * 0.5 + tube, 0.50, 0.012);
+          g.add(top, bot, left, right);
+          const stand = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.075, 0.13, 24), toy(M.lavender));
+          stand.position.y = 0.065;
+          stand.castShadow = true;
+          g.add(stand);
+          return wireRoot(g, 'futureBoard');
+        },
+        /** 语音答题机：胖球麦克风头 + 胶囊握柄 + 圆座 */
+        createVoiceMachine() {
+          const g = new THREE.Group();
+          const head = new THREE.Mesh(new THREE.SphereGeometry(0.12, 28, 22), toy(M.peach));
+          head.scale.set(1.25, 1.08, 1.2);
+          head.position.y = 0.26;
+          head.castShadow = true;
+          g.add(head);
+          const grille = new THREE.Mesh(
+            new THREE.SphereGeometry(0.075, 20, 16),
+            new THREE.MeshStandardMaterial({ color: 0xffe0b2, roughness: 0.55, metalness: 0.08 })
+          );
+          grille.scale.set(1, 0.48, 0.38);
+          grille.position.set(0, 0.26, 0.095);
+          g.add(grille);
+          const stem = new THREE.Mesh(new THREE.CapsuleGeometry(0.042, 0.14, 8, 16), toy(M.blue));
+          stem.position.y = 0.095;
+          g.add(stem);
+          const base = new THREE.Mesh(new THREE.CylinderGeometry(0.095, 0.11, 0.045, 28), toy(M.lavender));
+          base.position.y = 0.022;
+          g.add(base);
+          return wireRoot(g, 'voiceMachine');
+        },
+        /** 自动整理书架：双胶囊立柱 + 薄圆柱层板 + 彩色胶囊「书」 */
+        createAutoShelf() {
+          const g = new THREE.Group();
+          const post = new THREE.CapsuleGeometry(0.032, 0.42, 6, 12);
+          const p1 = new THREE.Mesh(post, toy(0xffe0b8));
+          p1.position.set(-0.20, 0.26, 0);
+          const p2 = new THREE.Mesh(post, toy(0xffe0b8));
+          p2.position.set(0.20, 0.26, 0);
+          g.add(p1, p2);
+          for (let i = 0; i < 3; i++) {
+            const shelf = new THREE.Mesh(
+              new THREE.CylinderGeometry(0.24, 0.25, 0.018, 32),
+              toy(0xfff0d6)
+            );
+            shelf.position.y = 0.075 + i * 0.13;
+            g.add(shelf);
+          }
+          const bookColors = [0xffb7c5, 0xb3e5fc, 0xfff9c4, 0xc8e6c9, 0xe1bee7];
+          bookColors.forEach((c, i) => {
+            const bk = new THREE.Mesh(
+              new THREE.CapsuleGeometry(0.024, 0.06 + (i % 3) * 0.025, 4, 10),
+              toy(c)
+            );
+            bk.rotation.z = Math.PI / 2;
+            bk.position.set(-0.10 + (i % 3) * 0.10, 0.175 + (i % 2) * 0.025, 0.10);
+            g.add(bk);
+          });
+          return wireRoot(g, 'autoShelf');
+        },
+        /** 智能坐姿矫正椅：扁球坐垫 + 后仰胶囊靠背 + 胶囊扶手 */
+        createSmartChair() {
+          const g = new THREE.Group();
+          const seat = new THREE.Mesh(new THREE.SphereGeometry(0.19, 24, 18), toy(M.blue));
+          seat.scale.set(1.08, 0.36, 0.92);
+          seat.position.y = 0.21;
+          seat.castShadow = true;
+          g.add(seat);
+          const back = new THREE.Mesh(new THREE.CapsuleGeometry(0.11, 0.20, 8, 16), toy(M.pink));
+          back.position.set(0, 0.36, -0.14);
+          back.rotation.x = -0.28;
+          back.castShadow = true;
+          g.add(back);
+          for (let i = 0; i < 4; i++) {
+            const a = (i / 4) * Math.PI * 2 + 0.35;
+            const leg = new THREE.Mesh(new THREE.CapsuleGeometry(0.018, 0.11, 4, 8), toy(0xd7ccc8));
+            leg.position.set(Math.cos(a) * 0.13, 0.075, Math.sin(a) * 0.13);
+            g.add(leg);
+          }
+          const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.032, 0.13, 4, 10), toy(M.mint));
+          arm.rotation.z = Math.PI / 2;
+          arm.position.set(-0.20, 0.28, 0);
+          const arm2 = arm.clone();
+          arm2.position.x = 0.20;
+          g.add(arm, arm2);
+          return wireRoot(g, 'smartChair');
+        },
+        /** 3D 课本展示台：圆座 + 悬浮自转发光十二面体 */
+        create3DProjector() {
+          const g = new THREE.Group();
+          const base = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.18, 0.055, 32), toy(M.lavender));
+          base.position.y = 0.028;
+          g.add(base);
+          const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.07, 0.09, 22), toy(M.cream));
+          neck.position.y = 0.10;
+          g.add(neck);
+          const holoGrp = new THREE.Group();
+          holoGrp.position.y = 0.195;
+          const dode = new THREE.Mesh(new THREE.DodecahedronGeometry(0.085, 0), MaterialLib.glowMat(0x80deea));
+          dode.material.emissiveIntensity = 0.58;
+          dode.castShadow = true;
+          holoGrp.add(dode);
+          holoGrp.userData.isFloating = true;
+          holoGrp.userData.floatAmp = 0.04;
+          holoGrp.userData.isRotating = true;
+          holoGrp.userData.rotateSpeed = 0.014;
+          animatedObjects.push(holoGrp);
+          g.add(holoGrp);
+          return wireRoot(g, 'projector3D');
+        },
+
+        // ==================== 第二关：休息区设备（柔软云朵感 / 治愈系） ====================
+        /** 云朵悬浮沙发：4~5 个白色球体交叠，整体悬浮 */
+        createCloudSofa() {
+          const g = new THREE.Group();
+          const cloudMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95, metalness: 0.0 });
+          const sGeo = new THREE.SphereGeometry(0.16, 26, 20);
+          const parts = [
+            [0.00, 0.16, 0.00, 1.15],
+            [-0.15, 0.15, 0.06, 1.00],
+            [0.16, 0.14, -0.05, 0.98],
+            [0.05, 0.19, 0.14, 0.88],
+            [-0.02, 0.12, -0.14, 0.78],
+          ];
+          parts.forEach(([x, y, z, sc], i) => {
+            const m = new THREE.Mesh(sGeo, cloudMat);
+            m.scale.setScalar(sc);
+            m.position.set(x, y, z);
+            m.castShadow = true;
+            // 让“云团”更蓬松一点：轻微旋转差异
+            m.rotation.y = i * 0.45;
+            g.add(m);
+          });
+          // 底部柔光圈（像漂浮光晕）
+          const halo = new THREE.Mesh(
+            new THREE.RingGeometry(0.15, 0.32, 32),
+            new THREE.MeshBasicMaterial({ color: 0xb3e5fc, transparent: true, opacity: 0.22, side: THREE.DoubleSide })
+          );
+          halo.rotation.x = -Math.PI / 2;
+          halo.position.y = 0.02;
+          g.add(halo);
+          g.position.y = 0.10;
+          g.userData.isFloating = true;
+          g.userData.floatAmp = 0.055;
+          g.userData.floatPhase = 0.6;
+          animatedObjects.push(g);
+          return wireRoot(g, 'cloudSofa');
+        },
+        /** 抱枕座椅：巨大胶囊体压扁（毛绒感） */
+        createPillowSeat() {
+          const g = new THREE.Group();
+          const p = new THREE.Mesh(new THREE.CapsuleGeometry(0.18, 0.20, 10, 18), toy(0xfff4b8));
+          p.scale.set(1.25, 0.55, 1.05);
+          p.position.y = 0.18;
+          p.castShadow = true;
+          g.add(p);
+          // 小小“缝线”（用很细的圆环暗示）
+          const seam = new THREE.Mesh(
+            new THREE.TorusGeometry(0.16, 0.006, 10, 36),
+            new THREE.MeshStandardMaterial({ color: 0xf8bbd0, roughness: 0.8, metalness: 0.0 })
+          );
+          seam.rotation.x = Math.PI / 2;
+          seam.position.y = 0.20;
+          g.add(seam);
+          return wireRoot(g, 'pillowSeat');
+        },
+        /** 智能温感饮水台：胖企鹅造型 + 发光水滴灯 */
+        createSmartWater() {
+          const g = new THREE.Group();
+          // 身体（蛋形企鹅）
+          const body = new THREE.Mesh(new THREE.SphereGeometry(0.16, 28, 22), toy(0xa8d8ea));
+          body.scale.set(1.15, 1.35, 1.05);
+          body.position.y = 0.22;
+          body.castShadow = true;
+          g.add(body);
+          // 肚皮（奶白）
+          const belly = new THREE.Mesh(new THREE.SphereGeometry(0.12, 22, 18), toy(0xfff8e7));
+          belly.scale.set(1.05, 1.2, 0.75);
+          belly.position.set(0, 0.20, 0.10);
+          g.add(belly);
+          // 头
+          const head = new THREE.Mesh(new THREE.SphereGeometry(0.11, 26, 20), toy(0xb3e5fc));
+          head.position.y = 0.38;
+          head.castShadow = true;
+          g.add(head);
+          // 嘴巴（小圆锥）
+          const beak = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.055, 24), toy(0xffccbc));
+          beak.rotation.x = Math.PI / 2;
+          beak.position.set(0, 0.36, 0.15);
+          g.add(beak);
+          // 眼睛
+          const eyeW = new THREE.Mesh(new THREE.SphereGeometry(0.018, 12, 10), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4 }));
+          const eyeB = new THREE.Mesh(new THREE.SphereGeometry(0.009, 10, 8), new THREE.MeshStandardMaterial({ color: 0x263238, roughness: 0.35 }));
+          const e1 = eyeW.clone(); e1.position.set(-0.04, 0.40, 0.12);
+          const e2 = eyeW.clone(); e2.position.set(0.04, 0.40, 0.12);
+          const p1 = eyeB.clone(); p1.position.set(-0.04, 0.40, 0.135);
+          const p2 = eyeB.clone(); p2.position.set(0.04, 0.40, 0.135);
+          g.add(e1, e2, p1, p2);
+          // 发光水滴指示灯
+          const drop = new THREE.Mesh(new THREE.SphereGeometry(0.03, 18, 14), MaterialLib.glowMat(0x80d8ff));
+          drop.scale.set(0.75, 1.2, 0.75);
+          drop.position.set(0, 0.26, 0.17);
+          g.add(drop);
+          // 小底座（圆润）
+          const base = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.16, 0.05, 32), toy(0xf8bbd0));
+          base.position.y = 0.025;
+          g.add(base);
+          return wireRoot(g, 'smartWater');
+        },
+        /** 自动香薰空气净化器：顶部气流半透明圆环缓慢旋转 */
+        createAromaPurifier() {
+          const g = new THREE.Group();
+          const base = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.15, 0.12, 36), toy(0xfff4b8));
+          base.position.y = 0.06;
+          base.castShadow = true;
+          g.add(base);
+          const cap = new THREE.Mesh(new THREE.SphereGeometry(0.11, 26, 20), toy(0xffc4d6));
+          cap.scale.set(1.05, 0.72, 1.05);
+          cap.position.y = 0.14;
+          cap.castShadow = true;
+          g.add(cap);
+          // 气流圆环：透明 + 轻发光
+          const airMat = MaterialLib.glassMat.clone();
+          airMat.color = new THREE.Color(0xb3e5fc);
+          airMat.opacity = 0.45;
+          airMat.transmission = 0.85;
+          const ring = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.014, 12, 48), airMat);
+          ring.position.y = 0.26;
+          ring.rotation.x = Math.PI / 2;
+          ring.userData.isRotating = true;
+          ring.userData.rotateSpeed = 0.01;
+          animatedObjects.push(ring);
+          g.add(ring);
+          return wireRoot(g, 'aromaPurifier');
+        },
+        /** 迷你阳光观景窗：圆润窗框 + 发光小太阳 */
+        createMiniWindow() {
+          const g = new THREE.Group();
+          const frame = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.04, 36), toy(0xb3e5fc));
+          frame.rotation.x = Math.PI / 2;
+          frame.position.y = 0.22;
+          g.add(frame);
+          const pane = new THREE.Mesh(new THREE.CircleGeometry(0.16, 40), MaterialLib.glassMat.clone());
+          pane.position.set(0, 0.22, 0.006);
+          pane.material.opacity = 0.55;
+          pane.material.transmission = 0.85;
+          g.add(pane);
+          const sun = new THREE.Mesh(new THREE.SphereGeometry(0.045, 18, 14), MaterialLib.glowMat(0xfff59d));
+          sun.position.set(0.055, 0.26, 0.02);
+          g.add(sun);
+          // 小太阳光芒（细圆柱放射）
+          const rayGeo = new THREE.CylinderGeometry(0.004, 0.004, 0.05, 10);
+          for (let i = 0; i < 8; i++) {
+            const r = new THREE.Mesh(rayGeo, new THREE.MeshStandardMaterial({ color: 0xfff9c4, emissive: 0xfff176, emissiveIntensity: 0.45, roughness: 0.6 }));
+            const a = (i / 8) * Math.PI * 2;
+            r.position.set(0.055 + Math.cos(a) * 0.07, 0.26 + Math.sin(a) * 0.03, 0.02);
+            r.rotation.z = a;
+            g.add(r);
+          }
+          return wireRoot(g, 'miniWindow');
+        },
+        /** 悬浮小茶几：单腿支撑 + 桌面微浮动 */
+        createHoverTable() {
+          const g = new THREE.Group();
+          const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.05, 0.18, 28), toy(0xd1c4e9));
+          leg.position.y = 0.09;
+          g.add(leg);
+          const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.12, 0.035, 32), toy(0xffc4d6));
+          foot.position.y = 0.017;
+          g.add(foot);
+          const top = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.18, 0.025, 40), MaterialLib.glassMat.clone());
+          top.material.opacity = 0.55;
+          top.material.transmission = 0.82;
+          top.position.y = 0.22;
+          top.castShadow = true;
+          top.userData.isFloating = true;
+          top.userData.floatAmp = 0.03;
+          top.userData.floatPhase = 0.9;
+          animatedObjects.push(top);
+          g.add(top);
+          return wireRoot(g, 'hoverTable');
+        },
+        /** 可爱圆形地毯：极薄圆柱体 + 两圈同心圆 */
+        createRoundRug() {
+          const g = new THREE.Group();
+          const base = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 0.01, 48), new THREE.MeshStandardMaterial({ color: 0xfff4b8, roughness: 0.98 }));
+          base.position.y = 0.005;
+          g.add(base);
+          const ring1 = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.008, 48), new THREE.MeshStandardMaterial({ color: 0xffc4d6, roughness: 0.98 }));
+          ring1.position.y = 0.011;
+          g.add(ring1);
+          const ring2 = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.008, 48), new THREE.MeshStandardMaterial({ color: 0xb3e5fc, roughness: 0.98 }));
+          ring2.position.y = 0.017;
+          g.add(ring2);
+          return wireRoot(g, 'roundRug');
+        },
+        /** 轻柔音乐播放器：卡通留声机（喇叭口半透明圆锥） */
+        createMusicPlayer() {
+          const g = new THREE.Group();
+          const base = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.14, 0.06, 32), toy(0xfff4b8));
+          base.position.y = 0.03;
+          g.add(base);
+          const body = new THREE.Mesh(new THREE.SphereGeometry(0.095, 24, 18), toy(0xffc4d6));
+          body.scale.set(1.15, 0.9, 1.1);
+          body.position.y = 0.11;
+          g.add(body);
+          const hornMat = MaterialLib.glassMat.clone();
+          hornMat.color = new THREE.Color(0xb3e5fc);
+          hornMat.opacity = 0.45;
+          hornMat.transmission = 0.9;
+          const horn = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.18, 48, 1, true), hornMat);
+          horn.position.set(0, 0.20, 0.08);
+          horn.rotation.x = Math.PI / 2;
+          g.add(horn);
+          const spark = new THREE.Mesh(new THREE.SphereGeometry(0.02, 16, 12), MaterialLib.glowMat(0xffe082));
+          spark.position.set(0, 0.20, 0.17);
+          g.add(spark);
+          return wireRoot(g, 'musicPlayer');
+        },
+
+        // ==================== 第二关：娱乐区设备（彩虹 + 发光 + 动态） ====================
+        /** 彩虹发光体感游戏垫：3×3 薄方块拼接（大量 glowMat） */
+        createRainbowMat() {
+          const g = new THREE.Group();
+          const colors = [0xffb7c5, 0xfff9c4, 0xc8e6c9, 0xb3e5fc, 0xe1bee7, 0xffccbc, 0x80deea, 0xf8bbd0, 0xb2ff59];
+          const tileGeo = new THREE.BoxGeometry(0.12, 0.02, 0.12);
+          let idx = 0;
+          for (let r = 0; r < 3; r++) {
+            for (let c = 0; c < 3; c++) {
+              const col = colors[idx++ % colors.length];
+              const m = MaterialLib.glowMat(col);
+              m.emissiveIntensity = 0.55;
+              const t = new THREE.Mesh(tileGeo, m);
+              t.position.set((c - 1) * 0.13, 0.012, (r - 1) * 0.13);
+              g.add(t);
+            }
+          }
+          const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.23, 0.25, 0.02, 48), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 }));
+          rim.position.y = 0.01;
+          g.add(rim);
+          return wireRoot(g, 'rainbowMat');
+        },
+        /** 3D 全息涂鸦板：玻璃面板 + 漂浮发光小彩块 */
+        create3DDoodle() {
+          const g = new THREE.Group();
+          const panel = new THREE.Mesh(new THREE.PlaneGeometry(0.45, 0.28), MaterialLib.glassMat.clone());
+          panel.rotation.x = -Math.PI / 2;
+          panel.position.y = 0.08;
+          panel.material.opacity = 0.55;
+          panel.material.transmission = 0.85;
+          g.add(panel);
+          const base = new THREE.Mesh(new THREE.CylinderGeometry(0.20, 0.22, 0.06, 32), toy(0xd1c4e9));
+          base.position.y = 0.03;
+          g.add(base);
+          const miniGeo = new THREE.BoxGeometry(0.03, 0.03, 0.03);
+          const cols = [0xffb7c5, 0xfff59d, 0x80deea, 0xb2ff59, 0xce93d8];
+          for (let i = 0; i < 5; i++) {
+            const b = new THREE.Mesh(miniGeo, MaterialLib.glowMat(cols[i % cols.length]));
+            b.position.set((Math.random() - 0.5) * 0.22, 0.14 + Math.random() * 0.06, (Math.random() - 0.5) * 0.12);
+            b.userData.isFloating = true;
+            b.userData.floatAmp = 0.02 + Math.random() * 0.02;
+            b.userData.floatPhase = Math.random() * 6.28;
+            b.userData.isRotating = true;
+            b.userData.rotateSpeed = 0.01 + Math.random() * 0.02;
+            animatedObjects.push(b);
+            g.add(b);
+          }
+          return wireRoot(g, 'doodle3D');
+        },
+        /** 悬浮音乐节拍器：倒三角锥（悬浮+自转） */
+        createHoverMetronome() {
+          const g = new THREE.Group();
+          const cone = new THREE.Mesh(new THREE.ConeGeometry(0.10, 0.22, 3), MaterialLib.glowMat(0xffb7c5));
+          cone.rotation.x = Math.PI;
+          cone.position.y = 0.18;
+          g.add(cone);
+          const cap = new THREE.Mesh(new THREE.SphereGeometry(0.03, 14, 10), MaterialLib.glowMat(0xfff9c4));
+          cap.position.y = 0.30;
+          g.add(cap);
+          g.userData.isFloating = true;
+          g.userData.floatAmp = 0.05;
+          g.userData.floatPhase = 0.3;
+          g.userData.isRotating = true;
+          g.userData.rotateSpeed = 0.012;
+          animatedObjects.push(g);
+          return wireRoot(g, 'hoverMetronome');
+        },
+        /** 卡通虚拟宠物机：蛋形机身 + 发光小屏 */
+        createVirtualPet() {
+          const g = new THREE.Group();
+          const egg = new THREE.Mesh(new THREE.SphereGeometry(0.14, 28, 22), toy(0xfff4b8));
+          egg.scale.set(1.05, 1.35, 1.0);
+          egg.position.y = 0.20;
+          g.add(egg);
+          const screen = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.06, 0.02), MaterialLib.glowMat(0x80deea));
+          screen.position.set(0, 0.22, 0.12);
+          g.add(screen);
+          const btn = new THREE.Mesh(new THREE.SphereGeometry(0.016, 12, 10), MaterialLib.glowMat(0xffb7c5));
+          btn.position.set(0, 0.14, 0.12);
+          g.add(btn);
+          return wireRoot(g, 'virtualPet');
+        },
+        /** 光影故事投影墙 */
+        createStoryWall() {
+          const g = new THREE.Group();
+          const wall = new THREE.Mesh(new THREE.PlaneGeometry(0.55, 0.35), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95, side: THREE.DoubleSide }));
+          wall.position.y = 0.35;
+          g.add(wall);
+          const glow = new THREE.Mesh(new THREE.RingGeometry(0.08, 0.13, 36), new THREE.MeshBasicMaterial({ color: 0xb388ff, transparent: true, opacity: 0.25, side: THREE.DoubleSide }));
+          glow.rotation.x = -Math.PI / 2;
+          glow.position.y = 0.02;
+          g.add(glow);
+          const proj = new THREE.Mesh(new THREE.SphereGeometry(0.06, 20, 16), toy(0xb3e5fc));
+          proj.position.set(0, 0.08, 0.18);
+          g.add(proj);
+          const beam = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.28, 40, 1, true), MaterialLib.glassMat.clone());
+          beam.material.opacity = 0.18;
+          beam.material.transmission = 0.95;
+          beam.material.color = new THREE.Color(0x80deea);
+          beam.position.set(0, 0.18, 0.06);
+          beam.rotation.x = -Math.PI / 2;
+          g.add(beam);
+          return wireRoot(g, 'storyWall');
+        },
+        /** 手势控制小游戏台：台面上漂浮小发光球 */
+        createGestureGame() {
+          const g = new THREE.Group();
+          const base = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.18, 0.08, 32), toy(0xffccbc));
+          base.position.y = 0.04;
+          g.add(base);
+          const top = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.20, 0.02, 48), toy(0xffffff));
+          top.position.y = 0.095;
+          g.add(top);
+          const cols = [0xffb7c5, 0xfff9c4, 0x80deea, 0xb2ff59];
+          for (let i = 0; i < 4; i++) {
+            const b = new THREE.Mesh(new THREE.SphereGeometry(0.02, 16, 12), MaterialLib.glowMat(cols[i]));
+            b.position.set((i - 1.5) * 0.05, 0.14, (Math.random() - 0.5) * 0.07);
+            b.userData.isFloating = true;
+            b.userData.floatAmp = 0.02;
+            b.userData.floatPhase = i * 1.2;
+            animatedObjects.push(b);
+            g.add(b);
+          }
+          return wireRoot(g, 'gestureGame');
+        },
+        /** 彩虹弹跳地板：带弹簧圈细节 */
+        createBounceFloor() {
+          const g = new THREE.Group();
+          const base = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.26, 0.03, 48), toy(0xffffff));
+          base.position.y = 0.015;
+          g.add(base);
+          const spring = new THREE.Mesh(new THREE.TorusGeometry(0.10, 0.01, 10, 48), new THREE.MeshStandardMaterial({ color: 0xb388ff, emissive: 0xb388ff, emissiveIntensity: 0.25, roughness: 0.5 }));
+          spring.rotation.x = Math.PI / 2;
+          spring.position.y = 0.05;
+          g.add(spring);
+          const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.20, 0.20, 0.02, 48), MaterialLib.glowMat(0xffb7c5));
+          plate.position.y = 0.09;
+          g.add(plate);
+          return wireRoot(g, 'bounceFloor');
+        },
+        /** 智能点唱小舞台：圆形底座 + 4 个发光柱灯 */
+        createSmartStage() {
+          const g = new THREE.Group();
+          const base = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.25, 0.06, 48), toy(0xd1c4e9));
+          base.position.y = 0.03;
+          g.add(base);
+          const colors = [0xffb7c5, 0xfff9c4, 0x80deea, 0xb2ff59];
+          for (let i = 0; i < 4; i++) {
+            const a = (i / 4) * Math.PI * 2;
+            const p = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.12, 18), MaterialLib.glowMat(colors[i]));
+            p.position.set(Math.cos(a) * 0.18, 0.09, Math.sin(a) * 0.18);
+            g.add(p);
+          }
+          const center = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 0.025, 32), MaterialLib.glowMat(0xb3e5fc));
+          center.position.y = 0.07;
+          g.add(center);
+          return wireRoot(g, 'smartStage');
+        },
+
+        // ==================== 第二关：自然角设备（生机 / 薄荷绿 / 自然光） ====================
+        /** 发光梦幻小草地：绿色底盘 + 微小发光不规则体（萤火虫） */
+        createGlowGrass() {
+          const g = new THREE.Group();
+          const base = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.26, 0.03, 48), toy(0xc8e6c9));
+          base.position.y = 0.015;
+          g.add(base);
+          const fireflyGeo = new THREE.IcosahedronGeometry(0.012, 0);
+          const cols = [0xb2ff59, 0x80deea, 0xfff59d];
+          for (let i = 0; i < 14; i++) {
+            const m = MaterialLib.glowMat(cols[i % cols.length]);
+            m.emissiveIntensity = 0.65;
+            const ff = new THREE.Mesh(fireflyGeo, m);
+            ff.position.set((Math.random() - 0.5) * 0.35, 0.03 + Math.random() * 0.05, (Math.random() - 0.5) * 0.35);
+            const sc = 0.6 + Math.random() * 1.2;
+            ff.scale.setScalar(sc);
+            ff.userData.isFloating = true;
+            ff.userData.floatAmp = 0.01 + Math.random() * 0.02;
+            ff.userData.floatPhase = Math.random() * 6.28;
+            animatedObjects.push(ff);
+            g.add(ff);
+          }
+          return wireRoot(g, 'glowGrass');
+        },
+        /** 悬浮盆栽：花盆悬浮 + 十二面体树冠 */
+        createHoverPot() {
+          const g = new THREE.Group();
+          const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.13, 0.10, 32), toy(0xffccbc));
+          pot.position.y = 0.12;
+          g.add(pot);
+          const rim = new THREE.Mesh(new THREE.TorusGeometry(0.105, 0.01, 10, 36), toy(0xffc4d6));
+          rim.rotation.x = Math.PI / 2;
+          rim.position.y = 0.17;
+          g.add(rim);
+          const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.02, 0.11, 18), toy(0x81c784));
+          stem.position.y = 0.22;
+          g.add(stem);
+          const crown = new THREE.Mesh(new THREE.DodecahedronGeometry(0.08, 0), toy(0xb2dfdb));
+          crown.position.y = 0.30;
+          g.add(crown);
+          g.userData.isFloating = true;
+          g.userData.floatAmp = 0.04;
+          g.userData.floatPhase = 0.8;
+          animatedObjects.push(g);
+          return wireRoot(g, 'hoverPot');
+        },
+        /** 迷你阳光花房：半球玻璃罩 + 内部小植物 */
+        createMiniGreenhouse() {
+          const g = new THREE.Group();
+          const glass = MaterialLib.glassMat.clone();
+          glass.opacity = 0.5;
+          glass.transmission = 0.9;
+          glass.color = new THREE.Color(0xe3f2fd);
+          const dome = new THREE.Mesh(new THREE.SphereGeometry(0.18, 32, 20, 0, Math.PI * 2, 0, Math.PI / 2), glass);
+          dome.position.y = 0.18;
+          g.add(dome);
+          const base = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.03, 48), toy(0xc8e6c9));
+          base.position.y = 0.015;
+          g.add(base);
+          const sprout = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.012, 0.10, 14), toy(0x66bb6a));
+          sprout.position.y = 0.08;
+          g.add(sprout);
+          const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.03, 16, 12), toy(0xb2ff59));
+          leaf.scale.set(1.2, 0.45, 0.9);
+          leaf.position.set(0.03, 0.12, 0);
+          const leaf2 = leaf.clone(); leaf2.position.x = -0.03; leaf2.rotation.y = Math.PI;
+          g.add(leaf, leaf2);
+          return wireRoot(g, 'miniGreenhouse');
+        },
+        /** 自动浇水小花园：带悬浮蓝色水滴 */
+        createAutoGarden() {
+          const g = new THREE.Group();
+          const bed = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.24, 0.04, 48), toy(0xa5d6a7));
+          bed.position.y = 0.02;
+          g.add(bed);
+          const soil = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.19, 0.02, 48), new THREE.MeshStandardMaterial({ color: 0x8d6e63, roughness: 0.95 }));
+          soil.position.y = 0.05;
+          g.add(soil);
+          const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.10, 12), toy(0xb3e5fc));
+          pipe.position.set(0.14, 0.10, 0);
+          g.add(pipe);
+          const drop = new THREE.Mesh(new THREE.SphereGeometry(0.03, 18, 14), MaterialLib.glowMat(0x80d8ff));
+          drop.scale.set(0.8, 1.25, 0.8);
+          drop.position.set(0.14, 0.18, 0);
+          drop.userData.isFloating = true;
+          drop.userData.floatAmp = 0.03;
+          drop.userData.floatPhase = 0.2;
+          animatedObjects.push(drop);
+          g.add(drop);
+          return wireRoot(g, 'autoGarden');
+        },
+        /** 卡通小树屋：圆柱树干 + 重叠球体树冠 + 微小方块木屋 */
+        createCartoonTreehouse() {
+          const g = new THREE.Group();
+          const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, 0.28, 20), new THREE.MeshStandardMaterial({ color: 0x8d6e63, roughness: 0.95 }));
+          trunk.position.y = 0.14;
+          g.add(trunk);
+          const crownMat = toy(0xc8e6c9);
+          const cGeo = new THREE.SphereGeometry(0.11, 22, 18);
+          [[0, 0.32, 0, 1.0], [-0.08, 0.30, 0.05, 0.85], [0.09, 0.29, -0.03, 0.82], [0.02, 0.36, 0.04, 0.72]].forEach(([x, y, z, sc]) => {
+            const s = new THREE.Mesh(cGeo, crownMat);
+            s.position.set(x, y, z);
+            s.scale.setScalar(sc);
+            g.add(s);
+          });
+          const hut = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.06, 0.08), new THREE.MeshStandardMaterial({ color: 0xffe0b2, roughness: 0.9 }));
+          hut.position.set(0.08, 0.20, 0.00);
+          g.add(hut);
+          const roof = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.05, 24), new THREE.MeshStandardMaterial({ color: 0xffccbc, roughness: 0.9 }));
+          roof.position.set(0.08, 0.25, 0.00);
+          g.add(roof);
+          return wireRoot(g, 'treehouse');
+        },
+        /** 蝴蝶光影装饰：两片扁圆柱翅膀，rotation.z 正弦拍打 */
+        createButterflyDeco() {
+          const g = new THREE.Group();
+          const wingGeo = new THREE.CylinderGeometry(0.09, 0.09, 0.01, 40);
+          const wingMat1 = MaterialLib.glowMat(0xb3e5fc);
+          wingMat1.emissiveIntensity = 0.45;
+          const wingMat2 = MaterialLib.glowMat(0xffc4d6);
+          wingMat2.emissiveIntensity = 0.45;
+          const left = new THREE.Mesh(wingGeo, wingMat1);
+          const right = new THREE.Mesh(wingGeo, wingMat2);
+          left.position.set(-0.07, 0.18, 0);
+          right.position.set(0.07, 0.18, 0);
+          left.rotation.y = 0.25;
+          right.rotation.y = -0.25;
+          // 翅膀扁平感
+          left.scale.set(1.15, 1, 0.85);
+          right.scale.set(1.15, 1, 0.85);
+          // 拍打：两个翅膀相位相反
+          left.userData.isFlapping = true;
+          left.userData.flapAmp = 0.55;
+          left.userData.flapSpeed = 3.5;
+          left.userData.flapPhase = 0;
+          right.userData.isFlapping = true;
+          right.userData.flapAmp = 0.55;
+          right.userData.flapSpeed = 3.5;
+          right.userData.flapPhase = Math.PI;
+          animatedObjects.push(left, right);
+          g.add(left, right);
+          const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.015, 0.08, 6, 10), toy(0x8d6e63));
+          body.position.set(0, 0.18, 0);
+          g.add(body);
+          return wireRoot(g, 'butterflyDeco');
+        },
+        /** 云朵小吊床：两端白云 + 粉色弯弯吊床（弧形用 Torus 片段近似） */
+        createCloudHammock() {
+          const g = new THREE.Group();
+          const cloudMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95, metalness: 0.0 });
+          const cGeo = new THREE.SphereGeometry(0.08, 22, 16);
+          const c1 = new THREE.Mesh(cGeo, cloudMat); c1.position.set(-0.18, 0.18, 0); c1.scale.set(1.2, 1.0, 1.1);
+          const c2 = new THREE.Mesh(cGeo, cloudMat); c2.position.set(-0.12, 0.17, 0.05);
+          const c3 = new THREE.Mesh(cGeo, cloudMat); c3.position.set(0.18, 0.18, 0); c3.scale.set(1.2, 1.0, 1.1);
+          const c4 = new THREE.Mesh(cGeo, cloudMat); c4.position.set(0.12, 0.17, -0.05);
+          g.add(c1, c2, c3, c4);
+          const hammock = new THREE.Mesh(
+            new THREE.TorusGeometry(0.16, 0.025, 10, 60, Math.PI),
+            toy(0xffc4d6)
+          );
+          hammock.rotation.x = Math.PI / 2;
+          hammock.position.set(0, 0.14, 0);
+          g.add(hammock);
+          return wireRoot(g, 'cloudHammock');
+        },
+        /** 星空投影灯：半球体 + 小发光星星（八面体），缓慢旋转 */
+        createStarProjector() {
+          const g = new THREE.Group();
+          const dome = new THREE.Mesh(new THREE.SphereGeometry(0.16, 32, 20, 0, Math.PI * 2, 0, Math.PI / 2), toy(0xb2dfdb));
+          dome.position.y = 0.16;
+          g.add(dome);
+          const base = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.18, 0.04, 48), toy(0xc8e6c9));
+          base.position.y = 0.02;
+          g.add(base);
+          const starGeo = new THREE.OctahedronGeometry(0.015, 0);
+          for (let i = 0; i < 7; i++) {
+            const s = new THREE.Mesh(starGeo, MaterialLib.glowMat(0xfff59d));
+            s.material.emissiveIntensity = 0.75;
+            s.position.set((Math.random() - 0.5) * 0.18, 0.30 + Math.random() * 0.06, (Math.random() - 0.5) * 0.18);
+            g.add(s);
+          }
+          g.userData.isRotating = true;
+          g.userData.rotateSpeed = 0.006;
+          animatedObjects.push(g);
+          return wireRoot(g, 'starProjector');
+        },
+      };
+    })();
+
+    function createMiniSofa() {
+      const g = new THREE.Group();
+      g.userData.kind = 'miniSofa'; g.userData.isPlacedModel = true;
+      // 圆形软垫（低面数）
+      const seat = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.26, 0.16, 18, 1), new THREE.MeshStandardMaterial({ color: 0xF8BBD0, roughness: 0.9, metalness: 0.0 }));
+      seat.position.y = 0.18; seat.castShadow = true; g.add(seat);
+      // 轻微褶皱（卡通化，用 4 个小鼓包）
+      const bumpGeo = new THREE.SphereGeometry(0.085, 14, 10);
+      const bumpMat = new THREE.MeshStandardMaterial({ color: 0xF6AFC6, roughness: 0.92, metalness: 0.0 });
+      [[0.10,0.06],[ -0.10,0.06 ],[0.0,-0.10],[0.0,0.14]].forEach(([x,z])=>{
+        const b = new THREE.Mesh(bumpGeo, bumpMat);
+        b.scale.set(1.2,0.7,1.1);
+        b.position.set(x,0.26,z);
+        g.add(b);
+      });
+      // 悬浮离地 0.1 + 绿光底
+      const glow = new THREE.Mesh(new THREE.RingGeometry(0.16, 0.30, 26), new THREE.MeshBasicMaterial({ color: 0xB2FF59, transparent: true, opacity: 0.35, side: THREE.DoubleSide }));
+      glow.rotation.x = -Math.PI/2; glow.position.y = 0.02; g.add(glow);
+      g.position.y = 0.10;
+      g.traverse(o => { if (o.isMesh) o.userData.placedRoot = g; });
+      return g;
+    }
+
+    function createMiniWaterStation() {
+      const g = new THREE.Group();
+      g.userData.kind = 'miniWaterStation'; g.userData.isPlacedModel = true;
+      // 圆角长方体（用两层盒子模拟）
+      const body = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.5, 0.2, 2, 2, 2), new THREE.MeshStandardMaterial({ color: 0xE3F2FD, roughness: 0.85, metalness: 0.02 }));
+      body.position.y = 0.25; body.castShadow = true; g.add(body);
+      const panel = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.32), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, side: THREE.DoubleSide }));
+      panel.position.set(0, 0.28, 0.101); g.add(panel);
+      // 水龙头（黄色）
+      const spout = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.12, 10), new THREE.MeshStandardMaterial({ color: 0xFFE082, roughness: 0.65 }));
+      spout.rotation.z = Math.PI/2; spout.position.set(0.07, 0.34, 0.11); g.add(spout);
+      const spout2 = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.08, 10), spout.material);
+      spout2.position.set(0.11, 0.30, 0.11); g.add(spout2);
+      // 水滴发光图标 + 水流（静态）
+      const drop = new THREE.Mesh(new THREE.CircleGeometry(0.03, 18), new THREE.MeshStandardMaterial({ color: 0x80D8FF, emissive: 0x80D8FF, emissiveIntensity: 0.8, side: THREE.DoubleSide }));
+      drop.position.set(-0.07, 0.42, 0.11); g.add(drop);
+      const water = new THREE.Mesh(new THREE.PlaneGeometry(0.02, 0.12), new THREE.MeshBasicMaterial({ color: 0x80D8FF, transparent: true, opacity: 0.45, side: THREE.DoubleSide }));
+      water.position.set(0.12, 0.24, 0.11); g.add(water);
+      // 文字贴纸 “智能饮水站”
+      const label = new THREE.Mesh(new THREE.PlaneGeometry(0.24, 0.06), new THREE.MeshStandardMaterial({
+        map: makeIconTexture((x,w,h)=>{
+          x.clearRect(0,0,w,h);
+          x.fillStyle='rgba(255,255,255,0)';
+          x.fillRect(0,0,w,h);
+          x.fillStyle='#ffffff';
+          x.font='bold 42px "Microsoft YaHei",Arial';
+          x.textAlign='center'; x.textBaseline='middle';
+          x.fillText('智能饮水站', w/2, h/2);
+        }, 512, 128),
+        transparent: true, opacity: 0.95, side: THREE.DoubleSide
+      }));
+      label.position.set(0, 0.08, 0.111); g.add(label);
+      g.traverse(o => { if (o.isMesh) o.userData.placedRoot = g; });
+      return g;
+    }
+
+    function createMiniGameMat() {
+      const g = new THREE.Group();
+      g.userData.kind = 'miniGameMat'; g.userData.isPlacedModel = true;
+      // 平铺地垫：1.0×0.8
+      const tex = makeIconTexture((x,w,h)=>{
+        const gr = x.createLinearGradient(0,0,w,h);
+        gr.addColorStop(0,'#FFB7C5'); gr.addColorStop(0.25,'#FFF9C4'); gr.addColorStop(0.5,'#B3E5FC'); gr.addColorStop(0.75,'#C8E6C9'); gr.addColorStop(1,'#E1BEE7');
+        x.fillStyle = gr; x.fillRect(0,0,w,h);
+        // 发光网格线
+        x.strokeStyle='rgba(255,255,255,0.75)'; x.lineWidth=2;
+        for(let i=0;i<=16;i++){
+          const p=i*(w/16);
+          x.beginPath(); x.moveTo(p,0); x.lineTo(p,h); x.stroke();
+        }
+        for(let j=0;j<=12;j++){
+          const p=j*(h/12);
+          x.beginPath(); x.moveTo(0,p); x.lineTo(w,p); x.stroke();
+        }
+        // 边缘辉光
+        x.strokeStyle='rgba(180,140,255,0.55)'; x.lineWidth=10;
+        x.strokeRect(8,8,w-16,h-16);
+      }, 512, 512);
+      const mat = new THREE.Mesh(
+        new THREE.PlaneGeometry(1.0, 0.8),
+        new THREE.MeshStandardMaterial({ map: tex, roughness: 0.6, metalness: 0.02, emissive: 0xB388FF, emissiveIntensity: 0.18, side: THREE.DoubleSide })
+      );
+      mat.rotation.x = -Math.PI/2;
+      mat.position.y = 0.01;
+      g.add(mat);
+      g.traverse(o => { if (o.isMesh) o.userData.placedRoot = g; });
+      return g;
+    }
+
+    function createMiniGraffiti() {
+      const g = new THREE.Group();
+      g.userData.kind = 'miniGraffiti'; g.userData.isPlacedModel = true; g.userData.isBoard = true;
+      const frame = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.5, 0.05, 2, 2, 1), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 }));
+      frame.position.y = 0.55; frame.castShadow = true; g.add(frame);
+      const tex = makeIconTexture((x,w,h)=>{
+        x.fillStyle='rgba(170,220,255,0.12)'; x.fillRect(0,0,w,h);
+        x.strokeStyle='rgba(255,255,255,0.55)'; x.lineWidth=8; x.strokeRect(16,16,w-32,h-32);
+        const cols=['#e91e63','#00bcd4','#ffeb3b','#8bc34a','#ab47bc'];
+        for(let i=0;i<7;i++){
+          x.strokeStyle=cols[i%cols.length]; x.lineWidth=10;
+          x.beginPath();
+          x.moveTo(40, 60 + i*28);
+          for(let k=0;k<6;k++){
+            x.lineTo(40 + k*(w-80)/5, 60 + i*28 + Math.sin((k+i)*1.3)*18);
+          }
+          x.stroke();
+        }
+      }, 512, 512);
+      const panel = new THREE.Mesh(new THREE.PlaneGeometry(0.72, 0.42), new THREE.MeshStandardMaterial({ map: tex, transparent: true, opacity: 0.88, emissive: 0x80D8FF, emissiveIntensity: 0.22, side: THREE.DoubleSide }));
+      panel.position.set(0, 0.55, 0.03); g.add(panel);
+      // 画笔槽（3 支画笔）
+      const tray = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.04, 0.08), new THREE.MeshStandardMaterial({ color: 0xCFD8DC, roughness: 0.7 }));
+      tray.position.set(0, 0.30, 0.05); g.add(tray);
+      const penGeo = new THREE.CylinderGeometry(0.008, 0.008, 0.16, 10);
+      [0xE91E63, 0x00BCD4, 0xFFEB3B].forEach((c,i)=>{
+        const p = new THREE.Mesh(penGeo, new THREE.MeshStandardMaterial({ color: c, roughness: 0.55 }));
+        p.rotation.z = Math.PI/2;
+        p.position.set(-0.14 + i*0.14, 0.31, 0.08);
+        g.add(p);
+      });
+      g.rotation.y = -0.35;
+      g.traverse(o => { if (o.isMesh) o.userData.placedRoot = g; });
+      return g;
+    }
+
+    // 分区标识牌（悬浮 1.2m，不遮挡模型）
+    function createZoneSign(zone) {
+      const g = new THREE.Group();
+      g.userData.kind = 'zoneSign';
+      g.userData.zone = zone;
+      g.userData.isPlacedModel = true;
+      const title = zone === 'study' ? '📚学习区' : zone === 'rest' ? '☕休息区' : '🎮娱乐区';
+      const bg = zone === 'study' ? '#E3F2FD' : zone === 'rest' ? '#FCE4EC' : '#FFF9C4';
+      const tex = makeIconTexture((x,w,h)=>{
+        x.fillStyle = bg; x.fillRect(0,0,w,h);
+        x.strokeStyle='rgba(255,255,255,0.9)'; x.lineWidth=10; x.strokeRect(10,10,w-20,h-20);
+        x.fillStyle='#37474f';
+        x.font='900 54px "Microsoft YaHei",Arial';
+        x.textAlign='center'; x.textBaseline='middle';
+        x.fillText(title, w/2, h/2);
+      }, 512, 256);
+      const plate = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.28), new THREE.MeshStandardMaterial({ map: tex, side: THREE.DoubleSide, roughness: 0.85, metalness: 0.0 }));
+      plate.position.y = 1.2;
+      const halo = new THREE.Mesh(new THREE.RingGeometry(0.16, 0.28, 26), new THREE.MeshBasicMaterial({ color: 0x43a047, transparent: true, opacity: 0.22, side: THREE.DoubleSide }));
+      halo.rotation.x = -Math.PI/2; halo.position.y = 1.02;
+      g.add(plate, halo);
+      g.traverse(o => { if (o.isMesh) o.userData.placedRoot = g; });
+      return g;
+    }
+
+    function registerPlaced(g) {
+      placedRoots.push(g);
+      scene.add(g);
+      // 中文注释：简单防重叠（容错，不会报错）
+      resolveOverlap(g);
+    }
+
+    function getBoxXZ(root) {
+      const box = new THREE.Box3().setFromObject(root);
+      return { box, cx: (box.min.x + box.max.x) * 0.5, cz: (box.min.z + box.max.z) * 0.5 };
+    }
+    function intersectsXZ(a, b) {
+      return !(a.box.max.x < b.box.min.x || a.box.min.x > b.box.max.x || a.box.max.z < b.box.min.z || a.box.min.z > b.box.max.z);
+    }
+    function resolveOverlap(root) {
+      try {
+        const maxIter = 24;
+        for (let it = 0; it < maxIter; it++) {
+          const a = getBoxXZ(root);
+          let hit = null;
+          for (const other of placedRoots) {
+            if (other === root) continue;
+            const b = getBoxXZ(other);
+            if (intersectsXZ(a, b)) { hit = b; break; }
+          }
+          if (!hit) break;
+          // 推开：沿 x/z 方向微移一个网格
+          const dx = a.cx - hit.cx;
+          const dz = a.cz - hit.cz;
+          if (Math.abs(dx) > Math.abs(dz)) root.position.x += Math.sign(dx || 1) * GRID;
+          else root.position.z += Math.sign(dz || 1) * GRID;
+          root.position.x = snap(root.position.x);
+          root.position.z = snap(root.position.z);
+        }
+      } catch (_) {}
+    }
+
+    // 中文注释：地板纹理1 —— 莫兰迪粉撞薄荷绿宽条纹 + 轻微织物肌理（低反光）
+    function makePinkMintStripeTex() {
+      const c = document.createElement('canvas'); c.width = 512; c.height = 512;
+      const x = c.getContext('2d');
+      // 宽条纹
+      const stripeW = 92;
+      for (let i = 0; i < Math.ceil(512 / stripeW) + 1; i++) {
+        x.fillStyle = i % 2 === 0 ? '#F5C6D6' : '#BFE8D6'; // 莫兰迪粉 / 薄荷绿
+        x.fillRect(i * stripeW, 0, stripeW, 512);
+      }
+      // 轻织物肌理：细线+微噪点（很淡，避免花）
+      x.globalAlpha = 0.18;
+      for (let y = 0; y < 512; y += 3) {
+        x.strokeStyle = y % 6 === 0 ? '#ffffff' : '#000000';
+        x.lineWidth = 0.35;
+        x.beginPath();
+        x.moveTo(0, y);
+        x.lineTo(512, y);
+        x.stroke();
+      }
+      x.globalAlpha = 0.08;
+      for (let i = 0; i < 2200; i++) {
+        const px = Math.random() * 512, py = Math.random() * 512;
+        x.fillStyle = Math.random() > 0.5 ? '#ffffff' : '#000000';
+        x.fillRect(px, py, 1, 1);
+      }
+      x.globalAlpha = 1;
+      const t = new THREE.CanvasTexture(c);
+      t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(1.35, 1.35); t.colorSpace = THREE.SRGBColorSpace;
+      return t;
+    }
+    function makeRainbowMacaronTex() {
+      const c = document.createElement('canvas'); c.width = 512; c.height = 512;
+      const g = c.getContext('2d').createLinearGradient(0, 0, 512, 512);
+      g.addColorStop(0, '#FFB7C5'); g.addColorStop(0.18, '#FFE4B5'); g.addColorStop(0.36, '#FFF9C4');
+      g.addColorStop(0.52, '#C8E6C9'); g.addColorStop(0.68, '#B3E5FC'); g.addColorStop(0.84, '#E1BEE7'); g.addColorStop(1, '#FFCCBC');
+      c.getContext('2d').fillStyle = g; c.getContext('2d').fillRect(0, 0, 512, 512);
+      const t = new THREE.CanvasTexture(c);
+      t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(1.2, 1.2); t.colorSpace = THREE.SRGBColorSpace;
+      return t;
+    }
+    const grassFloorVert = `
+      uniform float uTime;
+      varying vec2 vUv;
+      varying vec3 vWpos;
+      void main() {
+        vUv = uv;
+        vec3 p = position;
+        float ax = position.x * 14.0 + position.z * 11.0;
+        float az = position.z * 15.0 + position.x * 8.0;
+        p.x += sin(uTime * 2.4 + ax) * 0.055 + cos(uTime * 1.5 + az) * 0.038;
+        p.z += cos(uTime * 2.1 + az) * 0.05 + sin(uTime * 1.8 + ax) * 0.032;
+        p.y += sin(uTime * 3.0 + ax * 0.5 + az * 0.5) * 0.018;
+        vec4 w = modelMatrix * vec4(p, 1.0);
+        vWpos = w.xyz;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+      }
+    `;
+    const grassFloorFrag = `
+      uniform float uTime;
+      varying vec2 vUv;
+      varying vec3 vWpos;
+      void main() {
+        // 中文注释：草地配色优化 —— 浅绿渐变、纹理细腻均匀，去掉深绿杂点
+        float n = sin(vWpos.x * 22.0 + uTime * 2.2) * cos(vWpos.z * 20.0 + uTime * 2.0);
+        float n2 = sin(vWpos.x * 12.0 + vWpos.z * 14.0 + uTime * 1.7);
+        vec3 a = vec3(0.62, 0.88, 0.66); // 浅绿高光
+        vec3 b = vec3(0.46, 0.80, 0.56); // 主色
+        vec3 c = vec3(0.36, 0.72, 0.48); // 轻阴影
+        float m = 0.52 + 0.18 * n + 0.10 * n2;
+        vec3 col = mix(c, b, m);
+        col = mix(col, a, smoothstep(0.15, 0.75, n + 0.35) * 0.35);
+        // 细密草纹：很浅，不要杂点
+        float blade = abs(sin(vWpos.x * 32.0 + uTime * 3.6)) * abs(cos(vWpos.z * 30.0 + uTime * 3.2));
+        col += vec3(0.03, 0.05, 0.03) * blade * 0.25;
+        gl_FragColor = vec4(col, 1.0);
+      }
+    `;
+
+    function applyFloor(key) {
+      floorMatKey = key;
+      if (!floorMesh) return;
+      const old = floorMesh.material;
+      floorMesh.userData.grassUniforms = null;
+      if (old && old.map) old.map.dispose?.();
+      old?.dispose?.();
+      if (key === 'default') {
+        floorMesh.material = new THREE.MeshStandardMaterial({ color: 0xf5e6b8, roughness: 0.72 });
+      } else if (key === 'wood') {
+        const tex = makePinkMintStripeTex();
+        floorMesh.material = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.68, metalness: 0.02 });
+      } else if (key === 'rainbow') {
+        const tex = makeRainbowMacaronTex();
+        floorMesh.material = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.45, metalness: 0.02 });
+      } else if (key === 'grass') {
+        const uTime = { value: 0 };
+        floorMesh.userData.grassUniforms = { uTime };
+        floorMesh.material = new THREE.ShaderMaterial({
+          uniforms: { uTime },
+          vertexShader: grassFloorVert,
+          fragmentShader: grassFloorFrag,
+        });
+      } else {
+        floorMesh.material = new THREE.MeshStandardMaterial({ color: 0xf5e6b8, roughness: 0.72 });
+      }
+      checkTasks();
+    }
+
+    function buildRoom() {
+      roomGroup = new THREE.Group();
+      const floorGeo = new THREE.PlaneGeometry(14, 14, 72, 72);
+      floorMesh = new THREE.Mesh(floorGeo, new THREE.MeshStandardMaterial({ color: 0xf5e6b8, roughness: 0.72 }));
+      floorMesh.rotation.x = -Math.PI / 2; floorMesh.receiveShadow = true;
+      floorMesh.userData.isFloor = true; roomGroup.add(floorMesh);
+
+      // 中文注释：墙面粉白拼接（莫兰迪粉 + 米白），极细白分割线，哑光无反光
+      function makeWallMacaronTex(seed = 0) {
+        const c = document.createElement('canvas'); c.width = 512; c.height = 256;
+        const x = c.getContext('2d');
+        x.fillStyle = '#F6F0E8'; x.fillRect(0, 0, 512, 256); // 米白底
+        const pink = '#EEC6D3'; // 莫兰迪粉
+        const blocks = [
+          { x: 0, y: 0, w: 240, h: 130 },
+          { x: 260, y: 30, w: 252, h: 98 },
+          { x: 110, y: 150, w: 300, h: 106 },
+        ];
+        blocks.forEach((b, i) => {
+          const o = ((seed + i) % 3) * 14;
+          x.fillStyle = pink;
+          x.fillRect(b.x + o, b.y + (i * 8), b.w - o * 0.6, b.h);
+        });
+        // 极细白分割线（干净利落）
+        x.strokeStyle = 'rgba(255,255,255,0.9)';
+        x.lineWidth = 2;
+        x.strokeRect(0, 0, 512, 256);
+        x.beginPath();
+        x.moveTo(240, 0); x.lineTo(240, 256);
+        x.moveTo(0, 130); x.lineTo(512, 130);
+        x.moveTo(0, 150); x.lineTo(512, 150);
+        x.stroke();
+        const t = new THREE.CanvasTexture(c);
+        t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
+        t.colorSpace = THREE.SRGBColorSpace;
+        return t;
+      }
+      const wallTexBack = makeWallMacaronTex(1);
+      const wallTexSide = makeWallMacaronTex(2);
+      const wallBackM = new THREE.MeshStandardMaterial({ map: wallTexBack, roughness: 1.0, metalness: 0.0 });
+      const wallSideM = new THREE.MeshStandardMaterial({ map: wallTexSide, roughness: 1.0, metalness: 0.0 });
+      const w = 14, h = 4;
+      const b = new THREE.Mesh(new THREE.PlaneGeometry(w, h), wallBackM); b.position.set(0, h / 2, -7); roomGroup.add(b);
+      const l = new THREE.Mesh(new THREE.PlaneGeometry(w, h), wallSideM); l.rotation.y = Math.PI / 2; l.position.set(-7, h / 2, 0); roomGroup.add(l);
+      const r = new THREE.Mesh(new THREE.PlaneGeometry(w, h), wallSideM); r.rotation.y = -Math.PI / 2; r.position.set(7, h / 2, 0); roomGroup.add(r);
+      const grid = new THREE.GridHelper(14, 28, 0x888888, 0xcccccc); grid.position.y = 0.01; roomGroup.add(grid);
+      scene.add(roomGroup);
+    }
+
+    function getRootFromHit(obj) {
+      let o = obj;
+      while (o) {
+        if (o.userData && o.userData.trashRoot) return { type: 'trash', root: o.userData.trashRoot };
+        if (o.userData && o.userData.placedRoot) return { type: 'placed', root: o.userData.placedRoot };
+        o = o.parent;
+      }
+      return null;
+    }
+
+    function removeTrash(b) {
+      const i = trashRoots.indexOf(b);
+      if (i >= 0) trashRoots.splice(i, 1);
+      const rect = container.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
+      for (let k = 0; k < 12; k++) {
+        const d = document.createElement('div');
+        d.className = 'shatter-fx';
+        d.style.left = cx + 'px'; d.style.top = cy + 'px';
+        d.style.background = ['#c62828','#fff','#ff9800'][(Math.random()*3)|0];
+        d.style.setProperty('--sx', (Math.random() - 0.5) * 120 + 'px');
+        d.style.setProperty('--sy', (Math.random() - 0.5) * 120 + 'px');
+        document.body.appendChild(d);
+        setTimeout(() => d.remove(), 400);
+      }
+      scene.remove(b);
+      b.traverse(ch => { if (ch.geometry) ch.geometry.dispose(); if (ch.material) (Array.isArray(ch.material)?ch.material:[ch.material]).forEach(m=>m.dispose?.()); });
+      checkTasks();
+    }
+
+    function removePlaced(g) {
+      const i = placedRoots.indexOf(g);
+      if (i >= 0) placedRoots.splice(i, 1);
+      scene.remove(g);
+      g.traverse(ch => { if (ch.geometry) ch.geometry.dispose(); if (ch.material) (Array.isArray(ch.material)?ch.material:[ch.material]).forEach(m=>m.dispose?.()); });
+      if (selectedRoot === g) selectedRoot = null;
+      checkTasks();
+    }
+
+    function checkTasks() {
+      if (currentLevel === 1) {
+        const deskCount = placedRoots.filter(r => r.userData.kind === 'deskSet').length;
+        if (!taskDone[0] && deskCount >= 4) completeTask(0);
+        if (!taskDone[1] && trashRoots.length === 0) completeTask(1);
+        if (!taskDone[2] && task3BoardZcDone) completeTask(2);
+        if (!taskDone[3] && floorMatKey !== 'default') completeTask(3);
+        // 中文注释：第一关全任务完成 → 弹出解锁第二关弹窗（场景不重置）
+        if (taskDone.every(Boolean) && !level1CompleteShown) showVictory();
+      } else {
+        checkLevel2Tasks();
+      }
+    }
+
+    function completeTask(idx) {
+      if (taskDone[idx]) return;
+      taskDone[idx] = true;
+      const line = document.getElementById('taskLine' + idx);
+      if (line) {
+        line.classList.add('done', 'pop');
+        line.querySelector('.mark').textContent = '✓';
+        setTimeout(() => line.classList.remove('pop'), 500);
+      }
+      const cr = line.getBoundingClientRect();
+      for (let i = 0; i < 14; i++) {
+        const sp = document.createElement('div');
+        sp.className = 'task-star-fx';
+        sp.textContent = ['✨', '⭐', '💫'][(Math.random() * 3) | 0];
+        sp.style.left = cr.left + cr.width * 0.5 + (Math.random() - 0.5) * (cr.width + 40) + 'px';
+        sp.style.top = cr.top + cr.height * 0.45 + (Math.random() - 0.5) * 20 + 'px';
+        document.body.appendChild(sp);
+        setTimeout(() => sp.remove(), 650);
+      }
+    }
+
+    function showVictory() {
+      level1CompleteShown = true;
+      const ov = document.getElementById('victoryOverlay');
+      ov.classList.add('show');
+      for (let i = 0; i < 40; i++) {
+        const p = document.createElement('div');
+        p.className = 'rainbow-particle';
+        p.textContent = ['🌈','✨','⭐','💫'][i % 4];
+        p.style.left = Math.random() * 100 + 'vw';
+        p.style.top = Math.random() * 40 + 'vh';
+        p.style.setProperty('--rdx', (Math.random() - 0.5) * 200 + 'px');
+        p.style.setProperty('--rdy', (Math.random() + 0.3) * 300 + 'px');
+        document.body.appendChild(p);
+        setTimeout(() => p.remove(), 2100);
+      }
+      setTimeout(() => { ov.classList.remove('show'); }, 2000);
+      // 第一关通关后：弹出解锁第二关弹窗
+      setTimeout(() => showUnlockModal(), 520);
+    }
+
+    function showParticlesAt(el, n = 16) {
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      for (let i = 0; i < n; i++) {
+        const sp = document.createElement('div');
+        sp.className = 'task-star-fx';
+        sp.textContent = ['✨', '⭐', '💫'][(Math.random() * 3) | 0];
+        sp.style.left = r.left + r.width * 0.5 + (Math.random() - 0.5) * (r.width + 40) + 'px';
+        sp.style.top = r.top + r.height * 0.45 + (Math.random() - 0.5) * 18 + 'px';
+        document.body.appendChild(sp);
+        setTimeout(() => sp.remove(), 650);
+      }
+    }
+
+    // ==================== 第二关：任务判定（分区模型放置） ====================
+    function checkLevel2Tasks() {
+      const has = (k) => placedRoots.some(r => r.userData.kind === k);
+      const studyOk = has('holoDesk') && has('aiRobot') && has('futureBoard');
+      const restOk = has('cloudSofa') && has('smartWater');
+      const funOk = has('rainbowMat') && has('doodle3D');
+
+      setLv2Done('study', studyOk, document.getElementById('lv2LineStudy'));
+      setLv2Done('rest', restOk, document.getElementById('lv2LineRest'));
+      setLv2Done('fun', funOk, document.getElementById('lv2LineFun'));
+    }
+    function setLv2Done(zone, ok, lineEl) {
+      if (ok && !lv2Done[zone]) {
+        lv2Done[zone] = true;
+        if (lineEl) { lineEl.classList.add('done', 'pop'); lineEl.querySelector('.mark').textContent = '✓'; setTimeout(() => lineEl.classList.remove('pop'), 500); }
+        const tab = document.querySelector(`.zone-tab[data-zone="${zone}"]`);
+        if (tab) { tab.classList.add('done'); showParticlesAt(tab, 14); }
+        SFX.success();
+      } else if (!ok && lv2Done[zone]) {
+        // 容错：删除后自动回退状态
+        lv2Done[zone] = false;
+        if (lineEl) { lineEl.classList.remove('done'); lineEl.querySelector('.mark').textContent = '□'; }
+        const tab = document.querySelector(`.zone-tab[data-zone="${zone}"]`);
+        tab?.classList.remove('done');
+      }
+    }
+
+    /** 关卡重置：素材库场景、任务、可乐瓶 */
+    function resetLevel1() {
+      [...placedRoots].forEach(removePlaced);
+      level1CompleteShown = false;
+      taskDone.fill(false);
+      task3BoardZcDone = false;
+      level2Unlocked = false;
+      currentLevel = 1;
+      lv2Done.study = lv2Done.rest = lv2Done.fun = false;
+      for (let i = 0; i < 4; i++) {
+        const line = document.getElementById('taskLine' + i);
+        if (line) { line.classList.remove('done', 'pop'); line.querySelector('.mark').textContent = '□'; }
+      }
+      // 第二关 UI 重置
+      document.getElementById('lv2LineStudy')?.classList.remove('done');
+      document.getElementById('lv2LineStudy')?.querySelector('.mark') && (document.getElementById('lv2LineStudy').querySelector('.mark').textContent = '□');
+      document.getElementById('lv2LineRest')?.classList.remove('done');
+      document.getElementById('lv2LineRest')?.querySelector('.mark') && (document.getElementById('lv2LineRest').querySelector('.mark').textContent = '□');
+      document.getElementById('lv2LineFun')?.classList.remove('done');
+      document.getElementById('lv2LineFun')?.querySelector('.mark') && (document.getElementById('lv2LineFun').querySelector('.mark').textContent = '□');
+      document.querySelectorAll('.zone-tab').forEach(t => t.classList.remove('active', 'done'));
+      applyFloor('default');
+      document.querySelectorAll('.floor-swatch').forEach((el, j) => el.classList.toggle('active', j === 0));
+      spawnTrash();
+      deleteMode = false;
+      btnDeleteMode.classList.remove('on');
+      selectedRoot = null;
+      document.body.dataset.level = '1';
+      showBanner('已回到第一关初始状态');
+    }
+
+    function init() {
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x1a1a2e);
+      camera = new THREE.PerspectiveCamera(50, container.clientWidth / container.clientHeight || 1, 0.1, 200);
+      camera.position.set(8, 6, 10);
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(container.clientWidth || 300, container.clientHeight || 300);
+      renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+      renderer.shadowMap.enabled = true;
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      container.appendChild(renderer.domElement);
+
+      scene.add(new THREE.HemisphereLight(0xe8f4ff, 0xf5e6d0, 0.85));
+      const dir = new THREE.DirectionalLight(0xffffff, 0.95);
+      dir.position.set(6, 14, 8); dir.castShadow = true;
+      dir.shadow.mapSize.set(1024, 1024);
+      dir.shadow.camera.left = -12; dir.shadow.camera.right = 12; dir.shadow.camera.top = 12; dir.shadow.camera.bottom = -12;
+      scene.add(dir);
+
+      controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.target.set(0, 0.8, 0);
+      controls.mouseButtons = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.PAN, RIGHT: THREE.MOUSE.PAN };
+      controls.maxPolarAngle = Math.PI / 2 - 0.06;
+
+      buildRoom();
+      spawnTrash();
+      raycaster = new THREE.Raycaster();
+      pointer = new THREE.Vector2();
+
+      const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+      const dragPlane = new THREE.Vector3();
+
+      renderer.domElement.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0) return;
+        const rect = renderer.domElement.getBoundingClientRect();
+        pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+        pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+        raycaster.setFromCamera(pointer, camera);
+        // 中文注释：第二关分区标识牌放置逻辑（点击标签后触发一次）
+        if (pendingZoneSign && !deleteMode) {
+          const plane0 = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+          const hit = new THREE.Vector3();
+          if (raycaster.ray.intersectPlane(plane0, hit)) {
+            const sign = createZoneSign(pendingZoneSign);
+            sign.position.set(snap(hit.x), 0, snap(hit.z));
+            registerPlaced(sign);
+            selectedRoot = sign;
+            pendingZoneSign = null;
+            showBanner('✅ 标识牌已放置！继续放置该分区模型吧～');
+            SFX.place();
+            checkTasks();
+            return;
+          }
+        }
+        const objs = [...trashRoots, ...placedRoots];
+        const hits = raycaster.intersectObjects(objs, true);
+        if (hits.length === 0) return;
+        const info = getRootFromHit(hits[0].object);
+        if (!info) return;
+        if (deleteMode) {
+          if (info.type === 'trash') { removeTrash(info.root); return; }
+          if (info.type === 'placed') { removePlaced(info.root); return; }
+        }
+        if (info.type === 'placed') {
+          selectedRoot = info.root;
+          draggingRoot = info.root;
+          controls.enabled = false;
+        }
+      });
+      renderer.domElement.addEventListener('pointermove', (e) => {
+        if (!draggingRoot) return;
+        const rect = renderer.domElement.getBoundingClientRect();
+        pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+        pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+        raycaster.setFromCamera(pointer, camera);
+        if (raycaster.ray.intersectPlane(plane, dragPlane)) {
+          draggingRoot.position.x = snap(dragPlane.x);
+          draggingRoot.position.z = snap(dragPlane.z);
+        }
+      });
+      function endDrag() {
+        if (draggingRoot) {
+          resolveOverlap(draggingRoot);
+          draggingRoot = null;
+          controls.enabled = true;
+          checkTasks();
+        }
+      }
+      renderer.domElement.addEventListener('pointerup', endDrag);
+      renderer.domElement.addEventListener('pointerleave', endDrag);
+
+      window.addEventListener('keydown', (e) => {
+        const k = e.key.toLowerCase();
+        if (!selectedRoot || !placedRoots.includes(selectedRoot)) return;
+        const sp = 0.25;
+        if (k === 'w') selectedRoot.position.z -= sp;
+        if (k === 's') selectedRoot.position.z += sp;
+        if (k === 'a') selectedRoot.position.x -= sp;
+        if (k === 'd') selectedRoot.position.x += sp;
+        if (k === 'z') { selectedRoot.rotation.y += 0.08; if (selectedRoot.userData.isBoard) task3BoardZcDone = true; }
+        if (k === 'c') { selectedRoot.rotation.y -= 0.08; if (selectedRoot.userData.isBoard) task3BoardZcDone = true; }
+        if (k === 'o') selectedRoot.position.y += 0.12;
+        if (k === 'p') selectedRoot.position.y = Math.max(0, selectedRoot.position.y - 0.12);
+        if ('wasdzcop'.includes(k)) {
+          // 中文注释：键盘操控提示音（短促清脆），不干扰原交互
+          SFX.key();
+          selectedRoot.position.x = snap(selectedRoot.position.x);
+          selectedRoot.position.z = snap(selectedRoot.position.z);
+          checkTasks();
+        }
+      });
+
+      btnDeleteMode.addEventListener('click', () => {
+        deleteMode = !deleteMode;
+        btnDeleteMode.classList.toggle('on', deleteMode);
+        SFX.click();
+        showBanner(deleteMode ? '🟢 删除模式已激活，点击物体删除' : '🔴 删除模式已关闭');
+      });
+
+      document.querySelectorAll('.lib-card[data-place]').forEach(card => {
+        card.addEventListener('click', () => {
+          SFX.place();
+          const t = card.getAttribute('data-place');
+          let g;
+          if (t === 'deskSet') g = createDeskSet();
+          else if (t === 'holoBoard') g = createHoloBoard();
+          else if (t === 'whiteBoard') g = createWhiteBoard();
+          // 第二关微缩模型
+          else if (t === 'holoDesk') g = ModelFactory.createHoloDesk();
+          else if (t === 'hoverLamp') g = ModelFactory.createHoverLamp();
+          else if (t === 'aiRobot') g = ModelFactory.createAiRobot();
+          else if (t === 'futureBoard') g = ModelFactory.createFutureBoard();
+          else if (t === 'voiceMachine') g = ModelFactory.createVoiceMachine();
+          else if (t === 'autoShelf') g = ModelFactory.createAutoShelf();
+          else if (t === 'smartChair') g = ModelFactory.createSmartChair();
+          else if (t === 'projector3D') g = ModelFactory.create3DProjector();
+          // 第二关 · 休息区（云朵感）
+          else if (t === 'cloudSofa') g = ModelFactory.createCloudSofa();
+          else if (t === 'pillowSeat') g = ModelFactory.createPillowSeat();
+          else if (t === 'smartWater') g = ModelFactory.createSmartWater();
+          else if (t === 'aromaPurifier') g = ModelFactory.createAromaPurifier();
+          else if (t === 'miniWindow') g = ModelFactory.createMiniWindow();
+          else if (t === 'hoverTable') g = ModelFactory.createHoverTable();
+          else if (t === 'roundRug') g = ModelFactory.createRoundRug();
+          else if (t === 'musicPlayer') g = ModelFactory.createMusicPlayer();
+          // 第二关 · 娱乐区（彩虹发光）
+          else if (t === 'rainbowMat') g = ModelFactory.createRainbowMat();
+          else if (t === 'doodle3D') g = ModelFactory.create3DDoodle();
+          else if (t === 'hoverMetronome') g = ModelFactory.createHoverMetronome();
+          else if (t === 'virtualPet') g = ModelFactory.createVirtualPet();
+          else if (t === 'storyWall') g = ModelFactory.createStoryWall();
+          else if (t === 'gestureGame') g = ModelFactory.createGestureGame();
+          else if (t === 'bounceFloor') g = ModelFactory.createBounceFloor();
+          else if (t === 'smartStage') g = ModelFactory.createSmartStage();
+          // 第二关 · 自然角（生机薄荷）
+          else if (t === 'glowGrass') g = ModelFactory.createGlowGrass();
+          else if (t === 'hoverPot') g = ModelFactory.createHoverPot();
+          else if (t === 'miniGreenhouse') g = ModelFactory.createMiniGreenhouse();
+          else if (t === 'autoGarden') g = ModelFactory.createAutoGarden();
+          else if (t === 'treehouse') g = ModelFactory.createCartoonTreehouse();
+          else if (t === 'butterflyDeco') g = ModelFactory.createButterflyDeco();
+          else if (t === 'cloudHammock') g = ModelFactory.createCloudHammock();
+          else if (t === 'starProjector') g = ModelFactory.createStarProjector();
+          else if (t === 'miniSofa') g = createMiniSofa();
+          else if (t === 'miniWaterStation') g = createMiniWaterStation();
+          else if (t === 'miniGameMat') g = createMiniGameMat();
+          else if (t === 'miniGraffiti') g = createMiniGraffiti();
+          if (!g) return;
+          g.position.set(snap((Math.random() - 0.5) * 3), 0, snap((Math.random() - 0.5) * 3));
+          registerPlaced(g);
+          selectedRoot = g;
+          checkTasks();
+        });
+      });
+
+      // 中文注释：第二关分区标签交互（点击→准备放置区域标识牌）
+      document.querySelectorAll('.zone-tab').forEach(btn => {
+        btn.addEventListener('click', () => {
+          SFX.click();
+          document.querySelectorAll('.zone-tab').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          const z = btn.getAttribute('data-zone');
+          pendingZoneSign = z;
+          showBanner('📍 点击教室地面放置「' + (z === 'study' ? '学习区' : z === 'rest' ? '休息区' : '娱乐区') + '」标识牌');
+        });
+      });
+
+      const sw = document.getElementById('floorSwatches');
+      const keys = ['default', 'wood', 'grass', 'rainbow'];
+      const labels = ['默认', '粉×薄荷条纹', '草地', '彩虹纹'];
+      keys.forEach((key, i) => {
+        const d = document.createElement('div');
+        d.className = 'floor-swatch' + (i === 0 ? ' active' : '');
+        if (key === 'default') d.style.background = 'linear-gradient(135deg,#fff8e1,#ffe0b2)';
+        else if (key === 'wood') d.style.background = 'repeating-linear-gradient(90deg,#f5c6d6 0 22px,#bfe8d6 22px 44px)';
+        else if (key === 'grass') d.style.background = 'linear-gradient(135deg,#c8f7d2,#7be2a5)';
+        else if (key === 'rainbow') d.style.background = 'linear-gradient(135deg,#ffb7c5,#b3e5fc,#e1bee7)';
+        d.title = labels[i];
+        d.addEventListener('click', () => {
+          SFX.click();
+          document.querySelectorAll('.floor-swatch').forEach(x => x.classList.remove('active'));
+          d.classList.add('active');
+          applyFloor(key);
+        });
+        sw.appendChild(d);
+      });
+
+      window.addEventListener('resize', onResize);
+    }
+
+    function onResize() {
+      if (!camera || !renderer) return;
+      camera.aspect = (container.clientWidth || 1) / (container.clientHeight || 1);
+      camera.updateProjectionMatrix();
+      renderer.setSize(container.clientWidth || 300, container.clientHeight || 300);
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const tSec = performance.now() / 1000;
+      if (floorMesh && floorMesh.userData.grassUniforms) {
+        floorMesh.userData.grassUniforms.uTime.value = tSec;
+      }
+      // 全局动画：悬浮（正弦波 Y）与慢速自转
+      for (let i = animatedObjects.length - 1; i >= 0; i--) {
+        const obj = animatedObjects[i];
+        let r = obj;
+        while (r && r.parent) r = r.parent;
+        if (!obj || !obj.parent || r !== scene) {
+          animatedObjects.splice(i, 1);
+          continue;
+        }
+        if (obj.userData.isFloating) {
+          if (obj.userData._floatBaseY == null) obj.userData._floatBaseY = obj.position.y;
+          const base = obj.userData._floatBaseY;
+          const amp = obj.userData.floatAmp != null ? obj.userData.floatAmp : 0.06;
+          const ph = obj.userData.floatPhase != null ? obj.userData.floatPhase : 0;
+          obj.position.y = base + Math.sin(tSec * 2 + ph) * amp;
+        }
+        if (obj.userData.isRotating) {
+          const sp = obj.userData.rotateSpeed != null ? obj.userData.rotateSpeed : 0.01;
+          obj.rotation.y += sp;
+        }
+        // 翅膀拍动：用于自然角的蝴蝶光影装饰（rotation.z 正弦往复）
+        if (obj.userData.isFlapping) {
+          if (obj.userData._flapBaseZ == null) obj.userData._flapBaseZ = obj.rotation.z;
+          const baseZ = obj.userData._flapBaseZ;
+          const ampZ = obj.userData.flapAmp != null ? obj.userData.flapAmp : 0.45;
+          const spd = obj.userData.flapSpeed != null ? obj.userData.flapSpeed : 3.2;
+          const ph = obj.userData.flapPhase != null ? obj.userData.flapPhase : 0;
+          obj.rotation.z = baseZ + Math.sin(tSec * spd + ph) * ampZ;
+        }
+      }
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    let threeStarted = false;
+    function startThreeApp() {
+      if (threeStarted) { onResize(); return; }
+      threeStarted = true;
+      init();
+      levelWrap.style.display = 'block';
+      requestAnimationFrame(() => { onResize(); animate(); });
+    }
+
+    /** 下拉列表展开逻辑（高度 transition 0.3s 由 CSS max-height 控制） */
+    levelTrigger.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      levelWrap.classList.toggle('open');
+      levelTrigger.setAttribute('aria-expanded', levelWrap.classList.contains('open'));
+    });
+    levelPanel.addEventListener('click', (ev) => ev.stopPropagation());
+    document.addEventListener('click', () => levelWrap.classList.remove('open'));
+    levelPanel.querySelectorAll('.level-dd-item').forEach(item => {
+      item.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        const lv = item.getAttribute('data-level');
+        if (lv === '1') {
+          // 中文注释：回到第一关（可重置）
+          resetLevel1();
+          levelWrap.classList.remove('open');
+          return;
+        }
+        if (lv === '2') {
+          // 中文注释：第二关需第一关通关解锁；场景沿用（不重置 placedRoots）
+          if (!level2Unlocked) { alert('🔒 第二关未解锁，请先完成第一关并输入密码 308 解锁哦！'); return; }
+          enterLevel(2);
+          levelWrap.classList.remove('open');
+        }
+      });
+    });
+
+    const pageLogin = document.getElementById('page-login');
+    const pageApp = document.getElementById('page-app');
+    const inputGroup = document.getElementById('inputGroup');
+    const inputName = document.getElementById('inputName');
+    const btnLoginGo = document.getElementById('btnLoginGo');
+    const errorTip = document.getElementById('errorTip');
+    const loginCard = document.getElementById('loginCard');
+    const welcomeBanner = document.getElementById('welcomeBanner');
+    const unlockMask = document.getElementById('unlockMask');
+    const unlockInput = document.getElementById('unlockInput');
+    const unlockBtn = document.getElementById('unlockBtn');
+    const unlockTip = document.getElementById('unlockTip');
+
+    function createStarParticlesRef() {
+      for (let i = 0; i < 10; i++) {
+        const star = document.createElement('span');
+        star.className = 'star-particle';
+        star.textContent = ['✨', '🌟', '💫'][Math.random() * 3 | 0];
+        const ang = Math.random() * 6.28, dist = 72 + Math.random() * 68;
+        star.style.setProperty('--dx', Math.cos(ang) * dist + 'px');
+        star.style.setProperty('--dy', Math.sin(ang) * dist + 'px');
+        loginCard.appendChild(star);
+        setTimeout(() => star.remove(), 1100);
+      }
+    }
+
+    // 中文注释：输入框键入短音效（节流，避免吵）
+    const bindInputSfx = (el) => {
+      if (!el) return;
+      el.addEventListener('keydown', (e) => {
+        const k = e.key;
+        if (k === 'Shift' || k === 'Control' || k === 'Alt' || k === 'Meta' || k === 'CapsLock' || k === 'Tab') return;
+        SFX.key();
+      });
+      el.addEventListener('pointerdown', () => SFX.click(), { passive: true });
+    };
+    bindInputSfx(inputGroup);
+    bindInputSfx(inputName);
+
+    // 聚焦时隐藏错误提示（还原为你贴的版本交互）
+    [inputGroup, inputName].forEach(el => el?.addEventListener('focus', () => { if (errorTip) errorTip.style.opacity = '0'; }));
+
+    document.getElementById('btnLoginGo').addEventListener('click', () => {
+      SFX.click();
+      inputGroup.classList.remove('error');
+      inputName.classList.remove('error');
+      if (errorTip) errorTip.style.opacity = '0';
+      const group = (inputGroup.value || '').trim();
+      const name = (inputName.value || '').trim();
+      if (!group || !name) {
+        if (!group) inputGroup.classList.add('error');
+        if (!name) inputName.classList.add('error');
+        if (errorTip) errorTip.style.opacity = '1';
+        return;
+      }
+      createStarParticlesRef();
+      // 中文注释：登录成功「进入关卡」欢快提示音（短、非背景音乐）
+      SFX.success();
+      setTimeout(() => {
+        // 与你贴的版本一致：直接淡出登录层
+        pageLogin.style.opacity = '0';
+        setTimeout(() => {
+          window.stopLoginFlowerCanvas?.();
+          pageLogin.classList.add('is-hidden');
+          pageLogin.style.opacity = '';
+          document.body.style.backgroundColor = '#FADADD';
+          pageApp.style.display = 'flex';
+          pageApp.classList.remove('app-visible');
+          void pageApp.offsetWidth;
+          pageApp.classList.add('app-visible');
+          window.dispatchEvent(new Event('resize'));
+          startThreeApp();
+          document.body.dataset.level = '1';
+          welcomeBanner.textContent = `欢迎 ${name} 小朋友（小组 ${group}）～`;
+          welcomeBanner.classList.remove('show-welcome');
+          void welcomeBanner.offsetWidth;
+          welcomeBanner.classList.add('show-welcome');
+        }, 520);
+      }, 580);
+    });
+
+    // ==================== 第二关解锁密码逻辑（308） ====================
+    function showUnlockModal() {
+      if (!unlockMask || !unlockInput) return;
+      unlockMask.classList.add('show');
+      unlockMask.setAttribute('aria-hidden', 'false');
+      unlockTip?.classList.remove('show');
+      unlockInput.value = '';
+      setTimeout(() => unlockInput.focus(), 60);
+    }
+    function hideUnlockModal() {
+      if (!unlockMask) return;
+      unlockMask.classList.remove('show');
+      unlockMask.setAttribute('aria-hidden', 'true');
+    }
+    function enterLevel(lv) {
+      currentLevel = lv;
+      document.body.dataset.level = String(lv);
+      const label = document.getElementById('levelDdLabel');
+      if (label) label.textContent = (lv === 2 ? '第二关：智筑创想' : '第一关：智筑启航');
+      checkTasks();
+      showBanner(lv === 2 ? '✨ 已进入第二关：智筑创想（场景沿用第一关）' : '已回到第一关：智筑启航');
+    }
+    function tryUnlockLevel2() {
+      if (!unlockInput) return;
+      const v = (unlockInput.value || '').replace(/\D/g, '').slice(0, 3);
+      unlockInput.value = v;
+      if (v.length !== 3) return;
+      if (v === '308') {
+        level2Unlocked = true;
+        SFX.success();
+        hideUnlockModal();
+        // 平滑切换到第二关（不重置场景）
+        setTimeout(() => enterLevel(2), 220);
+      } else {
+        unlockTip?.classList.add('show');
+        unlockInput.value = '';
+        SFX.click();
+        setTimeout(() => unlockTip?.classList.remove('show'), 1400);
+        setTimeout(() => unlockInput.focus(), 80);
+      }
+    }
+    unlockBtn?.addEventListener('click', () => { SFX.click(); tryUnlockLevel2(); });
+    unlockInput?.addEventListener('input', () => { unlockTip?.classList.remove('show'); tryUnlockLevel2(); });
+    unlockInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); tryUnlockLevel2(); } });
+    unlockMask?.addEventListener('click', (e) => { if (e.target === unlockMask) { SFX.click(); /* 不允许关闭：强引导 */ } });
+  </script>
+</body>
+</html>
